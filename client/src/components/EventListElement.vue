@@ -1,6 +1,6 @@
 <script setup>
 defineProps(['name', 'date', 'price', 'isUp'])
-const emit = defineEmits(['click'])
+defineEmits(['click'])
 </script>
 
 <template>

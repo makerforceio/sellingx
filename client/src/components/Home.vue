@@ -26,6 +26,10 @@ const activeTickets = ref(null)
 let activeEventUnsub = null;
 let activeTicketsUnsub = null;
 
+// Buy Modal Stuff
+const showBuyModal = ref(false)
+const buyTicket = ref(null)
+
 onMounted(() => {
   const auth = getAuth()
 
@@ -147,6 +151,16 @@ const gotoEvents = () => {
   page.value = "events"
 }
 
+const buyModalOn = (ticket) => {
+  showBuyModal.value = true
+  buyTicket.value = ticket
+}
+
+const buyModalOff = () => {
+  showBuyModal.value = false
+  buyTicket.value = null
+}
+
 // Method to sign into firebase using passwordless
 const signin = () => {
   const auth = getAuth()
@@ -175,20 +189,29 @@ const signout = () => {
 </script>
 
 <template>
-  <nav class="flex flex-row pb-6 items-center">
-    <h1 class="text-3xl font-semibold">sellingx</h1>
-    <template v-if="user">
-      <div class="ml-auto">Signed in as <span class="font-semibold">{{ user.email }}</span></div>
-      <button class="bg-gray-900 color-white rounded text-white px-4 py-2 uppercase hover:bg-gray-600 ml-4" @click="signout">Logout</button>
-    </template>
-    <template v-else>
-      <input type="text" placeholder="Email" class="bg-gray-200 text-gray-800 ml-auto rounded p-2" v-model="email"/>
-      <button class="bg-gray-900 color-white ml-2 rounded text-white px-4 py-2 uppercase hover:bg-gray-600" @click="signin">Sign In</button>
-    </template>
+  <nav class="flex flex-col sm:pb-6">
+    <div class="flex flex-row items-center">
+      <h1 class="text-3xl font-semibold">sellingx</h1>
+      <template v-if="user">
+        <div class="hidden sm:block ml-auto">Signed in as <span class="font-semibold">{{ user.email }}</span></div>
+        <button class="ml-auto sm:ml-4 bg-gray-900 color-white rounded text-white px-4 py-2 uppercase hover:bg-gray-600" @click="signout">Logout</button>
+      </template>
+      <template v-else>
+        <input type="text" placeholder="Email" class="sm:block hidden bg-gray-200 text-gray-800 ml-auto rounded p-2" v-model="email"/>
+        <button class="sm:block hidden bg-gray-900 color-white ml-2 rounded text-white px-4 py-2 uppercase hover:bg-gray-600" @click="signin">Sign In</button>
+      </template>
+    </div>
+    <!-- Signed In Mobile -->
+    <div v-if="user" class="sm:hidden py-4">Signed in as <span class="font-semibold">{{ user.email }}</span></div>
+    <!-- Email Mobile -->
+    <div v-else class="sm:hidden flex flex-row items-center py-4">
+        <input type="text" placeholder="Email" class="bg-gray-200 text-gray-800 grow rounded p-2" v-model="email"/>
+        <button class="bg-gray-900 color-white ml-2 rounded text-white px-4 py-2 uppercase hover:bg-gray-600" @click="signin">Sign In</button>
+    </div>
   </nav>
 
   <!-- Status Messages -->
-  <div v-if="isSigningIn" class="bg-yellow-50 border-yellow-300 border rounded w-full p-4 text-yellow-600 text-sm">
+  <div v-if="isSigningIn" class="my-2 bg-yellow-50 border-yellow-300 border rounded w-full p-4 text-yellow-600 text-sm">
     A magic email is on the way. Please check <span class="font-semibold">{{ email }}</span> and open the email we've sent you on the same browser 🚀
   </div>
 
@@ -227,8 +250,37 @@ const signout = () => {
     </div>
     <h2 class="ml-auto font-light text-gray-500 text-xl mb-4">{{ activeEvent.readableDate }}</h2>
 
-    <TicketListElement v-for="ticket in activeTickets" :email="ticket.email" :cost="ticket.cost" />
+    <TicketListElement v-for="ticket in activeTickets" @click="buyModalOn(ticket)" :email="ticket.email" :cost="ticket.cost" />
   </template>
+
+  <!-- Buy Modal -->
+  <div v-if="showBuyModal" class="absolute inset-0 backdrop-blur-xl bg-black/50 z-50 flex justify-center items-center">
+    <div class="flex flex-col w-full sm:w-10/12 md:w-8/12 lg:w-4/12 m-2 p-6 bg-white rounded">
+      <!-- div class="flex flex-row w-full mb-4">
+        <button @click="buyModalOff" class="bg-gray-100 color-white rounded px-3 uppercase hover:bg-gray-200 text-3xl ml-auto">⨯</button>
+      </div -->
+      <div class="flex flex-row w-full items-center">
+        <h1 class="text-3xl font-semibold uppercase">{{ activeEvent.name }}</h1>
+        <div class="flex flex-row w-24 justify-center px-4 py-2 ml-auto rounded bg-green-500"> 
+          <span class="text-white">▼</span>
+          <h2 class="ml-2 text-white">£{{ activeEvent.price }}</h2>
+        </div>
+      </div>
+      <h2 class="font-light text-gray-500 text-xl mb-4">{{ activeEvent.readableDate }}</h2>
+      <div class="flex flex-row w-full my-2">
+        <div class="flex flex-row w-24 justify-center px-4 py-2 mr-2 rounded bg-gray-100"> 
+          <h2 class="text-gray-500 font-semibold">Seller</h2>
+        </div>
+        <div class="bg-gray-100 w-full flex flex-row px-4 py-2 rounded">
+          <h1 class="text-gray-500">{{ buyTicket.email }}</h1>
+        </div>
+      </div>
+      <div class="flex flex-row w-full my-2">
+        <button class="bg-green-500 color-white rounded text-white px-4 py-2 uppercase hover:bg-green-600 grow mr-2">Buy 16.50</button>
+        <button @click="buyModalOff" class="bg-gray-100 color-white rounded px-4 py-2 uppercase hover:bg-gray-200 grow ml-2">Cancel</button>
+      </div>
+    </div>
+  </div>
 
 </template>
 
