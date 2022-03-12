@@ -14,24 +14,6 @@ export const helloWorld = functions.https.onRequest((request, response) => {
   response.send("Hello from Firebase!");
 });
 
-export const test = functions.https.onRequest(async (request, response) => {
-  const doc = await db.doc(`events/${request.query.id}`).get().then(doc => doc.data());
-  const previous_average = doc!.average_price || 0;
-  const n = doc!.n || [];
-
-  const cost = request.query.cost ? +request.query.cost : 0;
-  if (n.length >= 5) {
-    n.splice(0, 1);
-  }
-
-  n.push(cost);
-  const average_price = n.reduce((acc:number, val:number) => acc + val, 0) / n.length;
-  await db.doc(`events/${request.query.id}`)
-    .set({ n, average_price, previous_average }, { merge: true });
-
-  response.send(n);
-});
-
 const onTicketChange = async (change: functions.Change<DocumentSnapshot>, context: functions.EventContext) => {
   functions.logger.info('stuff');
 
