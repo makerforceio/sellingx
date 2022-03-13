@@ -1,5 +1,5 @@
 <script setup>
-import { ref, onMounted } from 'vue'
+import { ref, onMounted, computed } from 'vue'
 import { getAuth, signOut, sendSignInLinkToEmail, isSignInWithEmailLink, signInWithEmailLink, onAuthStateChanged } from "firebase/auth";
 import { getFirestore, collection, query, onSnapshot, doc } from "firebase/firestore"
 
@@ -117,7 +117,8 @@ function newEventFromDoc(id, data) {
 
   newEvent.id = id
   newEvent.name = data.name
-  newEvent.price = data.price
+  newEvent.price = data.average_price
+  newEvent.previousPrice = data.previous_average
   newEvent.date = new Date(data.expiry.seconds * 1000)
   newEvent.readableDate = new Intl.DateTimeFormat('en-US', {
     year: 'numeric',
@@ -133,7 +134,7 @@ function newTicketFromDoc(id, data) {
 
   newTicket.id = id
   newTicket.email = data.email
-  newTicket.cost = data.cost
+  newTicket.price = data.price
 
   return newTicket
 }
@@ -160,6 +161,10 @@ const buyModalOff = () => {
   showBuyModal.value = false
   buyTicket.value = null
 }
+
+const isActiveEventUp = computed(() => {
+  return activeEvent.price >= activeEvent.previousPrice ? true : false
+})
 
 // Method to sign into firebase using passwordless
 const signin = () => {
@@ -229,7 +234,7 @@ const signout = () => {
     :name="event.name" 
     :price="event.price" 
     :date="event.readableDate" 
-    :isUp="true" 
+    :isUp="event.price >= event.previousPrice" 
     @click="gotoTickets(event.id)"/>
   </template>
 
@@ -243,14 +248,15 @@ const signout = () => {
 
     <div class="flex flex-row w-full items-center">
       <h1 class="text-3xl font-semibold uppercase">{{ activeEvent.name }}</h1>
-      <div class="flex flex-row w-24 justify-center px-4 py-2 ml-auto rounded bg-green-500"> 
-        <span class="text-white">▼</span>
+      <div class="flex flex-row w-24 justify-center px-4 py-2 ml-auto rounded" 
+        :class="{'bg-green-500': isActiveEventUp, 'bg-red-500': !isActiveEventUp}">
+        <span class="text-white">{{ isActiveEventUp ? "▲" : "▼" }}</span>
         <h2 class="ml-2 text-white">£{{ activeEvent.price }}</h2>
       </div>
     </div>
     <h2 class="ml-auto font-light text-gray-500 text-xl mb-4">{{ activeEvent.readableDate }}</h2>
 
-    <TicketListElement v-for="ticket in activeTickets" @click="buyModalOn(ticket)" :email="ticket.email" :cost="ticket.cost" />
+    <TicketListElement v-for="ticket in activeTickets" @click="buyModalOn(ticket)" :email="ticket.email" :price="ticket.price" />
   </template>
 
   <!-- Buy Modal -->
@@ -261,8 +267,9 @@ const signout = () => {
       </div -->
       <div class="flex flex-row w-full items-center">
         <h1 class="text-3xl font-semibold uppercase">{{ activeEvent.name }}</h1>
-        <div class="flex flex-row w-24 justify-center px-4 py-2 ml-auto rounded bg-green-500"> 
-          <span class="text-white">▼</span>
+        <div class="flex flex-row w-24 justify-center px-4 py-2 ml-auto rounded" 
+          :class="{'bg-green-500': isActiveEventUp, 'bg-red-500': !isActiveEventUp}">
+          <span class="text-white">{{ isActiveEventUp ? "▲" : "▼" }}</span>
           <h2 class="ml-2 text-white">£{{ activeEvent.price }}</h2>
         </div>
       </div>
@@ -276,7 +283,7 @@ const signout = () => {
         </div>
       </div>
       <div class="flex flex-row w-full my-2">
-        <button class="bg-green-500 color-white rounded text-white px-4 py-2 uppercase hover:bg-green-600 grow mr-2">Buy 16.50</button>
+        <button class="bg-green-500 color-white rounded text-white px-4 py-2 uppercase hover:bg-green-600 grow mr-2">Buy £{{ buyTicket.price }}</button>
         <button @click="buyModalOff" class="bg-gray-100 color-white rounded px-4 py-2 uppercase hover:bg-gray-200 grow ml-2">Cancel</button>
       </div>
     </div>
