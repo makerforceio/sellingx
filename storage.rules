@@ -1,0 +1,9 @@
+rules_version = '2';
+service firebase.storage {
+  match /b/tickets/o {
+    match /{userID}/{file} {
+      allow write: if request.auth != null;
+      allow read: if request.auth != null && request.resource.contentType == 'application/pdf' && request.auth.uid == userID;
+    }
+  }
+}
