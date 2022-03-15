@@ -1,9 +1,10 @@
 import * as functions from "firebase-functions";
-// const admin = require('firebase-admin');
 import * as admin from "firebase-admin";
 import {DocumentSnapshot} from "firebase-admin/firestore";
 
 admin.initializeApp();
+
+// import e from "./event";
 const db = admin.firestore();
 
 // // Start writing Firebase Functions
@@ -56,3 +57,34 @@ export const updateRollingAverageOnWrite = functions.firestore
 export const updateRollingAverageOnUpdate = functions.firestore
     .document("events/{event}/tickets/{ticket}")
     .onUpdate(onTicketChange);
+
+export const onTicketUpload = functions.storage
+    .object()
+    .onFinalize(async (object, context) => {
+      if (!object.metadata) {
+        return;
+      }
+
+      if (object.metadata.event == "") {
+        return;
+      }
+
+      if (object.metadata.seller == "") {
+        return;
+      }
+
+      const doc = await db.doc(`events/${object.metadata.event}`)
+          .get();
+
+      if (!doc.exists) {
+        return;
+      }
+
+      const user = await admin.auth().getUser(object.metadata.seller);
+      await db.doc(`events/${object.metadata.event}/tickets/${object.name}`)
+          .set({
+            seller: user.email,
+            price: +object.metadata.price || 0,
+            sold: false,
+          });
+    });
