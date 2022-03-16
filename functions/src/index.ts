@@ -2,10 +2,14 @@ import * as functions from "firebase-functions";
 import * as admin from "firebase-admin";
 import {DocumentSnapshot} from "firebase-admin/firestore";
 
+import Stripe from "stripe";
+
 admin.initializeApp();
 
-// import e from "./event";
 const db = admin.firestore();
+const stripe = new Stripe(process.env.STRIPE_API_KEY || "", {
+  apiVersion: "2020-08-27",
+});
 
 // // Start writing Firebase Functions
 // // https://firebase.google.com/docs/functions/typescript
@@ -87,4 +91,56 @@ export const onTicketUpload = functions.storage
             price: +object.metadata.price || 0,
             sold: false,
           });
+    });
+
+export const signup = functions.https.onCall(async (data, context) => {
+  if (!context.auth) {
+    throw new functions.https.HttpsError(
+        "failed-precondition",
+        "The function must be called while authenticated");
+  }
+
+  const account = await stripe.accounts.create({
+    type: "express",
+    country: "GB",
+    email: context.auth.token.email,
+    capabilities: {
+      card_payments: {requested: true},
+      transfers: {requested: true},
+    },
+  });
+
+  await db.doc(`stripes/${context.auth.uid}`)
+      .set({
+        stripe_id: account.id,
+      });
+
+  const accountLink = await stripe.accountLinks.create({
+    account: account.id,
+    refresh_url: `${process.env.SIGNUP_REFRESH_URL}?id=${account.id}`,
+    return_url: process.env.SIGNUP_RETURN_URL,
+    type: "account_onboarding",
+  });
+
+  return {
+    url: accountLink.url,
+  };
+});
+
+export const signupRefresh = functions.https
+    .onRequest(async (request, response) => {
+      if (!request.query.id) {
+        response.status(400).send("404 ID Not Found");
+        return;
+      }
+
+      const id = request.query.id as string;
+      const accountLink = await stripe.accountLinks.create({
+        account: id,
+        refresh_url: `${process.env.SIGNUP_REFRESH_URL}?id=${id}`,
+        return_url: process.env.SIGNUP_RETURN_URL,
+        type: "account_onboarding",
+      });
+
+      response.status(302).redirect(accountLink.url);
     });
