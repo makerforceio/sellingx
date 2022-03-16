@@ -155,3 +155,71 @@ export const signupRefresh = functions.https
 
       response.status(302).redirect(accountLink.url);
     });
+
+export const buyTicket = functions.https.onCall(async (data, context) => {
+  if (!context.auth) {
+    throw new functions.https.HttpsError(
+        "failed-precondition",
+        "The function must be called while authenticated");
+  }
+
+  if (data.event == undefined || data.ticket == undefined) {
+    throw new functions.https.HttpsError(
+        "failed-precondition",
+        "'event' and 'ticket' must not be undefined");
+  }
+
+  const doc = await db.doc(`events/${data.event}/tickets/${data.ticket}`)
+      .get()
+      .then((doc) => doc.data());
+
+  if (doc == undefined) {
+    throw new functions.https.HttpsError(
+        "failed-precondition",
+        "'event' and 'ticket' must exist");
+  }
+
+  if (doc.price == undefined) {
+    throw new functions.https.HttpsError(
+        "failed-precondition",
+        "'ticket' must have a price");
+  }
+
+  if (doc.seller_id == undefined) {
+    throw new functions.https.HttpsError(
+        "failed-precondition",
+        "'ticket' must have a seller_id");
+  }
+
+  const stripeDoc = await db.doc(`stripes/${doc.seller_id}`)
+      .get()
+      .then((d) => d.data());
+
+  if (stripeDoc == undefined) {
+    throw new functions.https.HttpsError(
+        "failed-precondition",
+        "seller not found");
+  }
+
+  if (stripeDoc.stripe_id == undefined) {
+    throw new functions.https.HttpsError(
+        "failed-precondition",
+        "seller does not have a recorded Stripe account");
+  }
+
+  const paymentIntent = await stripe.paymentIntents.create({
+    amount: doc.price * 100 + 30,
+    currency: "gbp",
+    payment_method_types: [
+      "card",
+    ],
+    application_fee_amount: 30,
+    transfer_data: {
+      destination: stripeDoc.stripe_id,
+    },
+  });
+
+  return {
+    secret: paymentIntent.client_secret,
+  };
+});
