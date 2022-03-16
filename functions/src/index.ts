@@ -26,11 +26,16 @@ const onTicketChange = async (
   const doc = await db.doc(`events/${context.params.event}`)
       .get()
       .then((doc) => doc.data());
-  const previousAverage = doc!.average_price || 0;
-  const n = doc!.n || [];
+
+  if (doc == undefined) {
+    return;
+  }
+
+  const previousAverage = doc.average_price || 0;
+  const n = doc.n || [];
 
   const changeData = change.after.data();
-  if (changeData == undefined || changeData!.price == null) {
+  if (changeData == undefined || changeData.price == null) {
     return;
   }
 
@@ -38,7 +43,7 @@ const onTicketChange = async (
     n.splice(0, 1);
   }
 
-  n.push(changeData!.price);
+  n.push(changeData.price);
 
   // eslint max lengths are annoying
   const totalPrice = n.reduce((acc:number, val:number) => acc + val, 0);
@@ -64,7 +69,7 @@ export const updateRollingAverageOnUpdate = functions.firestore
 
 export const onTicketUpload = functions.storage
     .object()
-    .onFinalize(async (object, context) => {
+    .onFinalize(async (object) => {
       if (!object.metadata) {
         return;
       }
