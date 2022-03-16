@@ -88,6 +88,7 @@ export const onTicketUpload = functions.storage
       await db.doc(`events/${object.metadata.event}/tickets/${object.name}`)
           .set({
             seller: user.email,
+            seller_id: user.uid,
             price: +object.metadata.price || 0,
             sold: false,
           });
@@ -104,6 +105,11 @@ export const signup = functions.https.onCall(async (data, context) => {
     type: "express",
     country: "GB",
     email: context.auth.token.email,
+    business_type: "individual",
+    business_profile: {
+      product_description: "tickets",
+      mcc: "7299",
+    },
     capabilities: {
       card_payments: {requested: true},
       transfers: {requested: true},
