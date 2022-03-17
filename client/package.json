@@ -9,6 +9,7 @@
   },
   "dependencies": {
     "firebase": "^9.6.8",
+    "uuid": "^8.3.2",
     "vue": "^3.2.25"
   },
   "devDependencies": {
