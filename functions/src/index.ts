@@ -131,6 +131,11 @@ export const signup = functions.https.onCall(async (data, context) => {
         stripe_id: account.id,
       });
 
+  await db.doc(`aids/${account.id}`)
+      .set({
+        uid: context.auth.uid,
+      });
+
   const accountLink = await stripe.accountLinks.create({
     account: account.id,
     refresh_url: `${process.env.SIGNUP_REFRESH_URL}?id=${account.id}`,
@@ -304,6 +309,27 @@ export const webhook = functions.https.onRequest(async (request, response) => {
   } else if (event.type == "payment_intent.payment_failed") {
     const id = (event.data.object as Stripe.PaymentIntent).id;
     await db.doc(`transactions/${id}`).delete();
+  } else if (event.type == "account.updated") {
+    const account = event.data.object as Stripe.Account;
+    const uid = await db.doc(`aids/${account.id}`)
+        .get()
+        .then((doc) => doc.data())
+        .then((data) => data ? data.uid : undefined);
+
+    if (uid == undefined) {
+      response.status(404).send("404 User Not Found");
+      return;
+    }
+
+    const payable = account.capabilities ?
+        account.capabilities.transfers == "active" : false;
+
+    await db.doc(`users/${uid}`)
+        .set({
+          payable,
+        }, {
+          merge: true,
+        });
   } else {
     functions.logger.info(`Unsupported webhook event ${event.type} tried`);
   }
