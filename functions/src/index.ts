@@ -3,13 +3,18 @@ import * as admin from "firebase-admin";
 import {DocumentSnapshot} from "firebase-admin/firestore";
 
 import Stripe from "stripe";
+import * as sendgrid from "@sendgrid/mail";
 
 admin.initializeApp();
 
 const db = admin.firestore();
+const bucket = admin.storage().bucket();
+sendgrid.setApiKey(process.env.SENDGRID_API_KEY || "");
 const stripe = new Stripe(process.env.STRIPE_API_KEY || "", {
   apiVersion: "2020-08-27",
 });
+
+const webhookSecret = process.env.STRIPE_WEBHOOK_SECRET || "";
 
 // // Start writing Firebase Functions
 // // https://firebase.google.com/docs/functions/typescript
@@ -219,7 +224,89 @@ export const buyTicket = functions.https.onCall(async (data, context) => {
     },
   });
 
+  await db.doc(`transactions/${paymentIntent.id}`)
+      .set({
+        buyer: context.auth.uid,
+        event: data.event,
+        ticket: data.ticket,
+      });
+
   return {
     secret: paymentIntent.client_secret,
   };
+});
+
+export const webhook = functions.https.onRequest(async (request, response) => {
+  let event;
+  try {
+    event = stripe.webhooks.constructEvent(
+        request.body,
+        request.headers["stripe-signature"] as string,
+        webhookSecret,
+    );
+  } catch (err) {
+    functions.logger.warn(err, {structuredData: true});
+    response.status(500).send("500 Internal Server Error");
+    return;
+  }
+
+  if (event.type == "payment_intent.succeeded") {
+    const id = (event.data.object as Stripe.PaymentIntent).id;
+    const doc = await db.doc(`transactions/${id}`)
+        .get()
+        .then((d) => d.data());
+
+    if (doc == undefined) {
+      response.status(404).send("404 Transaction Not Found");
+      return;
+    }
+
+    const buyer = await admin.auth().getUser(doc.buyer);
+    const tEvent = await db.doc(`events/${doc.event}/tickets/${doc.ticket}`)
+        .get()
+        .then((d) => d.data());
+
+    if (tEvent == undefined) {
+      response.status(404).send("404 Event Not Found");
+      return;
+    }
+
+    const [file] = await bucket.file(doc.ticket)
+        .get()
+        .then(([file]) => file.download());
+
+    const msg = {
+      to: buyer.email,
+      from: process.env.SENDGRID_SENDER_EMAIL || "sellingx@octalorca.me",
+      subject: `Your ${tEvent.name} ticket!`,
+      text: "Thank you! Your ticket is attached!",
+      attachments: [
+        {
+          content: file.toString("base64"),
+          filename: "ticket.pdf",
+          type: "application/pdf",
+          disposition: "attachment",
+        },
+      ],
+    };
+
+    await sendgrid.send(msg);
+
+    await db.doc(`events/${doc.event}/tickets/${doc.ticket}`)
+        .set({
+          sold: true,
+        }, {
+          merge: true,
+        });
+
+    await db.doc(`transactions/${id}`)
+        .delete();
+  } else if (event.type == "payment_intent.payment_failed") {
+    const id = (event.data.object as Stripe.PaymentIntent).id;
+    await db.doc(`transactions/${id}`).delete();
+  } else {
+    functions.logger.info(`Unsupported webhook event ${event.type} tried`);
+  }
+
+  response.status(200).send("200 OK");
 });
