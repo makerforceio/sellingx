@@ -6,6 +6,31 @@ service cloud.firestore {
       allow write: if false;
     }
   }
+
+  match /databases/{database}/documents/stripes {
+    match /{document=**} {
+      allow read, write: if false;
+    }
+  }
+
+  match /databases/{database}/documents/transactions {
+    match /{document=**} {
+      allow read, write: if false;
+    }
+  }
+
+  match /databases/{database}/documents/users {
+    match /{document=**} {
+      allow read: if true;
+      allow write: if false;
+    }
+  }
+
+  match /databases/{database}/documents/aids {
+    match /{document=**} {
+      allow read, write: if false;
+    }
+  }
   // match /databases/{database}/documents/events/{event}/tickets {
   //   match /{document=**} {
   //     allow write: if event.expiry > request.time;
