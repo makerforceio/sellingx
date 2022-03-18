@@ -165,7 +165,7 @@ export const buyTicket = functions.https.onCall(async (data, context) => {
 
   if (data.event == undefined || data.ticket == undefined) {
     throw new functions.https.HttpsError(
-        "failed-precondition",
+        "invalid-argument",
         "'event' and 'ticket' must not be undefined");
   }
 
@@ -175,19 +175,19 @@ export const buyTicket = functions.https.onCall(async (data, context) => {
 
   if (doc == undefined) {
     throw new functions.https.HttpsError(
-        "failed-precondition",
+        "invalid-argument",
         "'event' and 'ticket' must exist");
   }
 
   if (doc.price == undefined) {
     throw new functions.https.HttpsError(
-        "failed-precondition",
+        "invalid-argument",
         "'ticket' must have a price");
   }
 
   if (doc.seller_id == undefined) {
     throw new functions.https.HttpsError(
-        "failed-precondition",
+        "invalid-argument",
         "'ticket' must have a seller_id");
   }
 
@@ -197,13 +197,13 @@ export const buyTicket = functions.https.onCall(async (data, context) => {
 
   if (stripeDoc == undefined) {
     throw new functions.https.HttpsError(
-        "failed-precondition",
+        "invalid-argument",
         "seller not found");
   }
 
   if (stripeDoc.stripe_id == undefined) {
     throw new functions.https.HttpsError(
-        "failed-precondition",
+        "invalid-argument",
         "seller does not have a recorded Stripe account");
   }
 
