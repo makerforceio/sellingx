@@ -26,11 +26,13 @@ import EventListElement from "./EventListElement.vue";
 import TicketListElement from "./TicketListElement.vue";
 import LoadingSpinner from "./LoadingSpinner.vue";
 
+const hostUrl = "https://sellingx-a6131.web.app/"
+
 // Firebase passwordless settings
 const actionCodeSettings = {
   // URL you want to redirect back to. The domain (www.example.com) for this
   // URL must be in the authorized domains list in the Firebase Console.
-  url: "http://localhost:3000/",
+  url: hostUrl,
   handleCodeInApp: true,
 };
 
@@ -43,7 +45,7 @@ const email = ref("");
 const page = ref("events");
 const user = ref(null);
 const userData = ref(null);
-const userDataUnsub = ref(null);
+let userDataUnsub = null;
 
 const infoMessage = ref(null);
 const errorMessage = ref(null);
@@ -86,13 +88,15 @@ onMounted(() => {
   onAuthStateChanged(auth, async (userRaw) => {
     if (userRaw) {
       user.value = userRaw;
-      userDataUnsub.value = subscribeUser();
+      userDataUnsub = subscribeUser();
     } else {
       user.value = null;
       userData.value = null;
 
-      userDataUnsub();
-      userDataUnsub.value = null;
+      if(userDataUnsub != null) {
+        userDataUnsub();
+        userDataUnsub = null;
+      }
     }
   });
 
@@ -106,7 +110,7 @@ onMounted(() => {
       .then((result) => {
         window.localStorage.removeItem("emailForSignIn");
         user.value = result.user;
-        userDataUnsub.value = subscribeUser();
+        userDataUnsub = subscribeUser();
       })
       .catch(() => {
         errorMessage.value =
@@ -168,6 +172,7 @@ const subscribeActiveEvent = (eventId) => {
       newTickets.push(newTicket);
     });
     activeTickets.value = newTickets;
+    page.value = "tickets";
   });
 };
 
@@ -200,7 +205,7 @@ const getStripeBuyerSecret = async (ticket) => {
   // Configure Stripe Elements
   const functions = getFunctions();
   console.log(functions);
-  const buyTicket = httpsCallable(functions, "buyticket");
+  const buyTicket = httpsCallable(functions, "buyTicket");
 
   let result = await buyTicket({
     event: activeEvent.value.id,
@@ -307,7 +312,7 @@ function payForTicket() {
     //`Elements` instance that was used to create the Payment Element
     elements: stripeElements,
     confirmParams: {
-      return_url: "http://localhost:3000/?status=complete",
+      return_url: hostUrl + "?status=complete",
     },
   });
 }
@@ -315,7 +320,6 @@ function payForTicket() {
 const gotoTickets = (eventId) => {
   // Hooking Active event to firebase
   subscribeActiveEvent(eventId);
-  page.value = "tickets";
 };
 
 const gotoEvents = () => {
@@ -409,9 +413,12 @@ const myActiveTickets = computed(() => {
 });
 
 const notMyTickets = computed(() => {
-  return activeTickets.value.filter(
-    (ticket) => ticket.sellerId != user.value.uid
-  );
+  if(user.value != null) 
+    return activeTickets.value.filter(
+      (ticket) => ticket.sellerId != user.value.uid
+    );
+  else
+    return activeTickets.value;
 });
 
 // Method to sign into firebase using passwordless
@@ -580,13 +587,13 @@ const signout = () => {
 
     <!-- Purchased Events -->
     <div
-      v-if="user && myActiveTickets.length"
+      v-if="user"
       class="bg-gray-100 rounded w-full font-semibold px-4 py-2 text-gray-500 font-normal"
     >
       My Selling Tickets
     </div>
     <TicketListElement
-      v-if="user && myActiveTickets.length"
+      v-if="user"
       v-for="ticket in myActiveTickets"
       @click="sellUpdateModalOn(ticket)"
       :email="ticket.email"
@@ -594,7 +601,7 @@ const signout = () => {
     />
     <!-- Divider between view and personal -->
     <div
-      v-if="user && myActiveTickets.length"
+      v-if="user"
       class="h-px w-full bg-gray-100 my-4"
     ></div>
 
