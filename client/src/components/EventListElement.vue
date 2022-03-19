@@ -4,7 +4,7 @@ defineEmits(["click"]);
 </script>
 
 <template>
-  <button class="flex flex-row w-full my-2" @click="$emit('click')">
+  <button class="flex flex-row w-full my-2 text-sm md:text-base" @click="$emit('click')">
     <div class="bg-gray-100 w-full flex flex-row px-4 py-2 rounded">
       <h1 class="font-semibold uppercase">{{ name }}</h1>
       <h2 class="ml-auto font-light text-gray-500">{{ date }}</h2>

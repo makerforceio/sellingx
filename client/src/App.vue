@@ -5,21 +5,23 @@ import Home from "./components/Home.vue";
 </script>
 
 <template>
-  <div class="w-full lg:w-8/12 p-6 mx-auto">
-    <Home />
-  </div>
-  
-  <!-- Footer -->
-  <footer class="flex flex-col justify-center items-center text-gray-900 w-full px-4 pb-8 absolute inset-x-0 bottom-0">
-  <span class="text-sm">Designed and built with <div class="heart">❤️ </div> by 
-    <a class="underline underline-offset-1 hover:underline-offset-2 hover:text-red-500" href="https://www.google.com/">Shan</a> and 
-    <a class="underline underline-offset-1 hover:underline-offset-2 hover:text-red-500" href="https://www.google.com/">Daniel</a>.
-  </span>
-    <div class="flex flex-row my-2">
-      <a href="https://www.google.com/" class="text-xs mx-2">Terms of Use</a>
-      <a href="https://www.google.con/" class="text-xs mx-2">Privacy Policy</a>
+  <div class="flex flex-col h-full">
+    <div class="w-full lg:w-8/12 p-6 mx-auto grow">
+      <Home />
     </div>
-  </footer>
+    
+    <!-- Footer -->
+    <footer class="flex flex-col shrink-0 justify-center items-center text-gray-900 w-full px-4 pb-4 lg:pb-8">
+    <span class="text-sm">Designed and built with <span class="heart">❤️ </span> by 
+      <a class="underline underline-offset-1 hover:underline-offset-2 hover:text-red-500" href="https://www.google.com/">Shan</a> and 
+      <a class="underline underline-offset-1 hover:underline-offset-2 hover:text-red-500" href="https://www.google.com/">Daniel</a>.
+    </span>
+      <div class="flex flex-row my-2">
+        <a href="https://www.google.com/" class="text-xs mx-2">Terms of Use</a>
+        <a href="https://www.google.con/" class="text-xs mx-2">Privacy Policy</a>
+      </div>
+    </footer>
+  </div>
 </template>
 
 <style>

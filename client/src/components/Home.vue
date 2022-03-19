@@ -15,6 +15,7 @@ import {
   onSnapshot,
   doc,
   updateDoc,
+  deleteDoc,
   where,
   Timestamp,
 } from "firebase/firestore";
@@ -26,7 +27,7 @@ import EventListElement from "./EventListElement.vue";
 import TicketListElement from "./TicketListElement.vue";
 import LoadingSpinner from "./LoadingSpinner.vue";
 
-const hostUrl = "https://sellingx-a6131.web.app/"
+const hostUrl = "http://localhost:3000/"
 
 // Firebase passwordless settings
 const actionCodeSettings = {
@@ -49,6 +50,7 @@ let userDataUnsub = null;
 
 const infoMessage = ref(null);
 const errorMessage = ref(null);
+const successMessage = ref(null);
 const isSigningIn = ref(false);
 const signInButtonLoading = ref(false);
 const events = ref(null);
@@ -65,6 +67,7 @@ const showBuyModal = ref(false);
 const buyTicket = ref(null);
 const buyButtonLoading = ref(false);
 const paymentOptionsLoading = ref(false);
+const errorMessageBuyModal = ref(null);
 let stripeElements = null;
 
 // Sell Modal Stuff
@@ -80,6 +83,7 @@ const updateTicket = ref(null);
 const newTicketPrice = ref(null);
 const updateButtonLoading = ref(false);
 const cancelButtonLoading = ref(false);
+const errorMessageUpdateModal = ref(null);
 
 onMounted(() => {
   const auth = getAuth();
@@ -104,19 +108,24 @@ onMounted(() => {
   if (isSignInWithEmailLink(auth, window.location.href)) {
     let email = window.localStorage.getItem("emailForSignIn");
     if (!email) {
-      errorMessage.value = "Please login with the same device";
+      infoMessage.value = "Please login with the same device!";
     }
     signInWithEmailLink(auth, email, window.location.href)
       .then((result) => {
         window.localStorage.removeItem("emailForSignIn");
-        user.value = result.user;
-        userDataUnsub = subscribeUser();
+        window.location.replace(hostUrl); 
       })
       .catch(() => {
-        errorMessage.value =
-          "Oops... we don't really know what happened, let us know about this bug below 😔";
+        // Probably an expired token or something let's just silently fail
       });
   }
+
+  // Check if there is any messages to show
+  var urlParams = new URLSearchParams(window.location.search);
+  if(urlParams.has('successConnect'))
+    successMessage.value = "We've successfully configured your seller account 💰";
+  else if(urlParams.has('successBuy'))
+    successMessage.value = "You've bought a ticket, it's on it's way to your email 💌";
 
   subscribeEvents();
 });
@@ -196,7 +205,7 @@ const startStripeConnect = () => {
     })
     .catch(() => {
       // Probably the user is not authenticated
-      errorMessage.value =
+      infoMessage.value =
         "We don't know who you are. Login above to sell a ticket 😉";
     });
 };
@@ -264,6 +273,9 @@ function updateTicketPrice() {
   }).then(() => {
     sellUpdateModalOff();
     updateButtonLoading.value = false;
+  }).catch((error) => {
+    errorMessageUpdateModal.value = "Oops, there's an error, reach out to us to report it!"
+    updateButtonLoading.value = false;
   });
 }
 
@@ -278,6 +290,10 @@ function cancelTicketSale() {
   );
   deleteDoc(ticketRef).then(() => {
     sellUpdateModalOff();
+    cancelButtonLoading.value = false;
+  }).catch((error) => {
+    console.log(error)
+    errorMessageUpdateModal.value = "Oops, there's an error, reach out to us to report it!"
     cancelButtonLoading.value = false;
   });
 }
@@ -312,8 +328,13 @@ function payForTicket() {
     //`Elements` instance that was used to create the Payment Element
     elements: stripeElements,
     confirmParams: {
-      return_url: hostUrl + "?status=complete",
+      return_url: hostUrl + "?successBuy=true",
     },
+  }).then(function(result) {
+    if (result.error){
+      errorMessageBuyModal.value = "Unable to complete purchase, report any bugs below!";
+      buyButtonLoading.value = false;
+    }
   });
 }
 
@@ -330,7 +351,7 @@ const gotoEvents = () => {
 const buyModalOn = (ticket) => {
   if (!user.value) {
     // User not logged in
-    errorMessage.value = "Login above to buy a ticket 😉";
+    infoMessage.value = "Login above to buy a ticket 😉";
     return;
   }
 
@@ -398,6 +419,7 @@ const sellUpdateModalOn = (ticket) => {
 const sellUpdateModalOff = () => {
   showSellUpdateModal.value = false;
   updateTicket.value = null;
+  errorMessageUpdateModal.value = null;
 };
 
 const isActiveEventUp = computed(() => {
@@ -534,6 +556,14 @@ const signout = () => {
   >
     {{ errorMessage }}
   </div>
+  
+    <!-- Success Messages -->
+  <div
+    v-if="successMessage != null"
+    class="mb-4 bg-green-50 border-green-300 border rounded w-full py-2 px-4 text-green-600 text-sm"
+  >
+    {{ successMessage }}
+  </div>
 
   <!-- Divider between view and personal -->
   <div class="h-px w-full bg-gray-100 mb-4"></div>
@@ -616,7 +646,7 @@ const signout = () => {
   <!-- Buy Modal -->
   <div
     v-if="showBuyModal"
-    class="absolute inset-0 backdrop-blur-xl bg-black/50 z-50 flex justify-center items-center"
+    class="absolute inset-0 backdrop-blur-md bg-black/50 z-50 flex justify-center items-center"
   >
     <div
       class="flex flex-col w-full sm:w-10/12 md:w-8/12 lg:w-4/12 m-2 p-6 bg-white rounded"
@@ -663,6 +693,12 @@ const signout = () => {
       <div v-show="!paymentOptionsLoading" class="mt-4" id="payment-element">
         <!-- Elements will create form elements here -->
       </div>
+      <div
+        v-if="errorMessageBuyModal != null"
+        class="mb-4 bg-red-50 border-red-300 border rounded w-full py-2 px-4 text-red-600 text-sm"
+      >
+        {{ errorMessageBuyModal }}
+      </div>
       <div class="flex flex-row w-full mt-10">
         <button
           :disabled="buyButtonLoading || paymentOptionsLoading"
@@ -685,7 +721,7 @@ const signout = () => {
   <!-- Sell Modal -->
   <div
     v-if="showSellModal"
-    class="absolute inset-0 backdrop-blur-xl bg-black/50 z-50 flex justify-center items-center"
+    class="absolute inset-0 backdrop-blur-md bg-black/50 z-50 flex justify-center items-center"
   >
     <div
       class="flex flex-col w-full sm:w-10/12 md:w-8/12 lg:w-4/12 m-2 p-6 bg-white rounded"
@@ -795,7 +831,7 @@ const signout = () => {
   <!-- Sell Update Modal -->
   <div
     v-if="showSellUpdateModal"
-    class="absolute inset-0 backdrop-blur-xl bg-black/50 z-50 flex justify-center items-center"
+    class="absolute inset-0 backdrop-blur-md bg-black/50 z-50 flex justify-center items-center"
   >
     <div
       class="flex flex-col w-full sm:w-10/12 md:w-8/12 lg:w-4/12 m-2 p-6 bg-white rounded"
@@ -839,26 +875,32 @@ const signout = () => {
           v-model="newTicketPrice"
         />
       </div>
-      <div class="flex flex-row w-full my-2">
+      <div
+        v-if="errorMessageUpdateModal != null"
+        class="mb-4 bg-red-50 border-red-300 border rounded w-full py-2 px-4 text-red-600 text-sm"
+      >
+        {{ errorMessageUpdateModal }}
+      </div>
+      <div class="flex flex-col lg:flex-row w-full my-2">
         <button
           @click="updateTicketPrice"
           :disabled="updateButtonLoading"
-          class="flex justify-center items-center bg-green-500 color-white rounded text-white px-4 py-2 uppercase hover:bg-green-600 grow mr-2"
+          class="flex justify-center items-center bg-green-500 color-white rounded text-white px-4 py-2 uppercase hover:bg-green-600 grow my-1"
         >
-          <span v-if="!updateButtonLoading">Update Price</span>
+          <span v-if="!updateButtonLoading">Update</span>
           <LoadingSpinner v-if="updateButtonLoading" size="24" color="#fff" />
         </button>
         <button
           @click="cancelTicketSale"
           :disabled="cancelButtonLoading"
-          class="flex justify-center items-center bg-red-500 color-white rounded text-white px-4 py-2 uppercase hover:bg-red-600 grow mr-2"
+          class="flex justify-center items-center bg-red-500 color-white rounded text-white px-4 py-2 uppercase hover:bg-red-600 grow lg:mx-2 my-1"
         >
-          <span v-if="!cancelButtonLoading">Stop Sale</span>
+          <span v-if="!cancelButtonLoading">Withdraw</span>
           <LoadingSpinner v-if="cancelButtonLoading" size="24" color="#fff" />
         </button>
         <button
           @click="sellUpdateModalOff"
-          class="bg-gray-100 color-white rounded px-4 py-2 uppercase hover:bg-gray-200 grow"
+          class="bg-gray-100 color-white rounded px-4 py-2 uppercase hover:bg-gray-200 grow my-1"
         >
           Cancel
         </button>
