@@ -217,6 +217,21 @@ export const buyTicket = functions.https.onCall(async (data, context) => {
         "seller does not have a recorded Stripe account");
   }
 
+  const sellerInformation = await stripe.accounts.retrieve(stripeDoc.stripe_id)
+      .catch((e) => {
+        functions.logger.warn(e, {structuredData: true});
+        throw new functions.https.HttpsError(
+            "invalid-argument",
+            "seller does not have a recorded Stripe account");
+      });
+
+  if (sellerInformation.capabilities == undefined ||
+      sellerInformation.capabilities.transfers != "active") {
+    throw new functions.https.HttpsError(
+        "invalid-argument",
+        "seller cannot receive payment");
+  }
+
   const paymentIntent = await stripe.paymentIntents.create({
     amount: doc.price * 100 + 30,
     currency: "gbp",
@@ -245,7 +260,7 @@ export const webhook = functions.https.onRequest(async (request, response) => {
   let event;
   try {
     event = stripe.webhooks.constructEvent(
-        request.body,
+        request.rawBody,
         request.headers["stripe-signature"] as string,
         webhookSecret,
     );
