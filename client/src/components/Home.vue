@@ -27,7 +27,7 @@ import EventListElement from "./EventListElement.vue";
 import TicketListElement from "./TicketListElement.vue";
 import LoadingSpinner from "./LoadingSpinner.vue";
 
-const hostUrl = "http://localhost:3000/"
+const hostUrl = "https://sellingx-a6131.web.app/"
 
 // Firebase passwordless settings
 const actionCodeSettings = {
@@ -392,7 +392,7 @@ const sellModalOn = () => {
     return;
   }
 
-  if (!userData.value) {
+  if (!userData.value.payable) {
     stripeConnectLoading.value = true;
     startStripeConnect();
     return;
@@ -615,12 +615,12 @@ const signout = () => {
       {{ activeEvent.readableDate }}
     </h2>
 
-    <!-- Purchased Events -->
+    <!-- Selling Tickets -->
     <div
       v-if="user"
       class="bg-gray-100 rounded w-full font-semibold px-4 py-2 text-gray-500 font-normal"
     >
-      My Selling Tickets
+      {{ (myActiveTickets.length != 0) ? "My Selling Tickets" : "Sell a ticket using the button above 😜" }} 
     </div>
     <TicketListElement
       v-if="user"

@@ -18,7 +18,8 @@ import Home from "./components/Home.vue";
     </span>
       <div class="flex flex-row my-2">
         <a href="https://www.google.com/" class="text-xs mx-2">Terms of Use</a>
-        <a href="https://www.google.con/" class="text-xs mx-2">Privacy Policy</a>
+        <a href="https://www.google.com/" class="text-xs mx-2">Privacy Policy</a>
+        <a href="https://www.google.com/" class="text-xs mx-2">Need help?</a>
       </div>
     </footer>
   </div>
