@@ -27,8 +27,8 @@ import EventListElement from "./EventListElement.vue";
 import TicketListElement from "./TicketListElement.vue";
 import LoadingSpinner from "./LoadingSpinner.vue";
 
-// const hostUrl = "https://sellingx-a6131.web.app/"
-const hostUrl = "http://localhost:3000/"
+const hostUrl = "https://sellingx-a6131.web.app/"
+// const hostUrl = "http://localhost:3000/"
 
 // Firebase passwordless settings
 const actionCodeSettings = {
@@ -383,6 +383,7 @@ const buyModalOn = (ticket) => {
 const buyModalOff = () => {
   showBuyModal.value = false;
   buyTicket.value = null;
+  errorMessageBuyModal.value = null;
 };
 
 const sellModalOn = () => {
@@ -684,9 +685,12 @@ const signout = () => {
       <div v-show="!paymentOptionsLoading" class="mt-4" id="payment-element">
         <!-- Elements will create form elements here -->
       </div>
+      <div class="text-gray-500 text-xs mt-4">
+        We charge a £0.30 transaction fee to pay for hosting :)
+      </div>
       <div
         v-if="errorMessageBuyModal != null"
-        class="mb-4 bg-red-50 border-red-300 border rounded w-full py-2 px-4 text-red-600 text-sm"
+        class="mb-4 bg-red-50 border-red-300 border rounded w-full py-2 px-4 text-red-600 text-sm mt-2"
       >
         {{ errorMessageBuyModal }}
       </div>
@@ -696,7 +700,7 @@ const signout = () => {
           class="flex justify-center items-center bg-green-500 color-white rounded text-white px-4 py-2 uppercase hover:bg-green-600 grow mr-2"
           @click="payForTicket"
         >
-          <span v-if="!buyButtonLoading">Buy £{{ buyTicket.price }}</span>
+          <span v-if="!buyButtonLoading">Buy £{{ (buyTicket.price + 0.30).toFixed(2) }}</span>
           <LoadingSpinner size="24" color="#fff" v-if="buyButtonLoading" />
         </button>
         <button
