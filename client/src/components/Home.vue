@@ -27,8 +27,14 @@ import EventListElement from "./EventListElement.vue";
 import TicketListElement from "./TicketListElement.vue";
 import LoadingSpinner from "./LoadingSpinner.vue";
 
-const hostUrl = "https://sellingx-a6131.web.app/"
-// const hostUrl = "http://localhost:3000/"
+let hostUrl;
+// CHECK FOR DEV MODE
+if(window.location.hostname == 'localhost')
+  hostUrl = `http://${window.location.host}/` 
+else
+  hostUrl = `https://${window.location.host}/`;
+
+console.log(hostUrl)
 
 // Firebase passwordless settings
 const actionCodeSettings = {
