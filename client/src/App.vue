@@ -13,13 +13,13 @@ import Home from "./components/Home.vue";
     <!-- Footer -->
     <footer class="flex flex-col shrink-0 justify-center items-center text-gray-900 w-full px-4 pb-4 lg:pb-8">
     <span class="text-sm">Designed and built with <span class="heart">❤️ </span> by 
-      <a class="underline underline-offset-1 hover:underline-offset-2 hover:text-red-500" href="https://www.google.com/">Shan</a> and 
-      <a class="underline underline-offset-1 hover:underline-offset-2 hover:text-red-500" href="https://www.google.com/">Daniel</a>.
+      <a class="underline underline-offset-1 hover:underline-offset-2 hover:text-red-500" href="https://solderneer.me/">Shan</a> and 
+      <a class="underline underline-offset-1 hover:underline-offset-2 hover:text-red-500" href="https://instagram.com/octal.orca">Daniel</a>.
     </span>
       <div class="flex flex-row my-2">
-        <a href="https://www.google.com/" class="text-xs mx-2">Terms of Use</a>
-        <a href="https://www.google.com/" class="text-xs mx-2">Privacy Policy</a>
-        <a href="https://www.google.com/" class="text-xs mx-2">Need help?</a>
+        <span class="text-xs">Need help? Contact us at
+          <a href="mailto:support@sellingx.io?subject=Support%20Request" class="underline underline-offset-1 hover:underline-offset-2 hover:text-red-500">support@sellingx.io</a>
+        </span>
       </div>
     </footer>
   </div>

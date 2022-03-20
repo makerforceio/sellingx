@@ -46,7 +46,8 @@ const actionCodeSettings = {
 
 // Stripe settings (imported in index)
 const stripe = Stripe(
-  "pk_test_51Kc9zuICM6wKNignNV224oUSa4Rs07yOKbQlQsJECDiFJE42RE3bOntjdXBV1gMvpW8f38qGqtZIoWVVzfYFpKAu005DLPPYTE"
+  "pk_live_51Kc9zuICM6wKNignVh7ttMDklHvI6R6MGbw3dXzi9YSfm7W1qjexw6Cs9uO8n1JYtUD8eyTtnxwU45FZrTnVu5W400W82weKwJ"
+  // "pk_test_51Kc9zuICM6wKNignNV224oUSa4Rs07yOKbQlQsJECDiFJE42RE3bOntjdXBV1gMvpW8f38qGqtZIoWVVzfYFpKAu005DLPPYTE" 
 );
 
 const email = ref("");
@@ -384,7 +385,6 @@ const buyModalOn = (ticket) => {
   showBuyModal.value = true;
   buyTicket.value = ticket;
 
-  // startStripeConnect();
   getStripeBuyerSecret(ticket).then((secret) => {
     const options = {
       clientSecret: secret,
@@ -402,6 +402,8 @@ const buyModalOn = (ticket) => {
     const paymentElem = stripeElements.create("payment");
     paymentElem.mount("#payment-element");
     paymentOptionsLoading.value = false;
+  }).catch((_) => {
+      errorMessageBuyModal.value = "ERROR: fetching payment data";
   });
 };
 
@@ -418,11 +420,14 @@ const sellModalOn = () => {
     return;
   }
 
-  if (!userData.value.payable) {
+  if (!userData.value) {
     stripeConnectLoading.value = true;
     startStripeConnect();
     return;
   }
+
+  if (!userData.value.payable)
+    infoMessage.value = "Your stripe onboarding is not processed, try again in a while!"
 
   showSellModal.value = true;
 };
@@ -652,6 +657,13 @@ const signout = () => {
       v-if="user"
       class="h-px w-full bg-gray-100 my-4"
     ></div>
+
+    <div
+      v-if="notMyTickets.length == 0"
+      class="bg-red-100 rounded w-full font-semibold px-4 py-2 text-red-500 font-normal"
+    >
+      No tickets are selling for this event yet 😔
+    </div>
 
     <TicketListElement
       v-for="ticket in notMyTickets"
