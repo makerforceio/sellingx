@@ -15,6 +15,7 @@ const stripe = new Stripe(process.env.STRIPE_API_KEY || "", {
 });
 
 const webhookSecret = process.env.STRIPE_WEBHOOK_SECRET || "";
+const webhookConnectSecret = process.env.STRIPE_CONNECT_WEBHOOK_SECRET || "";
 
 // // Start writing Firebase Functions
 // // https://firebase.google.com/docs/functions/typescript
@@ -351,3 +352,46 @@ export const webhook = functions.https.onRequest(async (request, response) => {
 
   response.status(200).send("200 OK");
 });
+
+export const webhookConnect = functions.https
+    .onRequest(async (request, response) => {
+      let event;
+      try {
+        event = stripe.webhooks.constructEvent(
+            request.rawBody,
+            request.headers["stripe-signature"] as string,
+            webhookConnectSecret,
+        );
+      } catch (err) {
+        functions.logger.warn(err, {structuredData: true});
+        response.status(500).send("500 Internal Server Error");
+        return;
+      }
+
+      if (event.type == "account.updated") {
+        const account = event.data.object as Stripe.Account;
+        const uid = await db.doc(`aids/${account.id}`)
+            .get()
+            .then((doc) => doc.data())
+            .then((data) => data ? data.uid : undefined);
+
+        if (uid == undefined) {
+          response.status(404).send("404 User Not Found");
+          return;
+        }
+
+        const payable = account.capabilities ?
+            account.capabilities.transfers == "active" : false;
+
+        await db.doc(`users/${uid}`)
+            .set({
+              payable,
+            }, {
+              merge: true,
+            });
+      } else {
+        functions.logger.info(`Unsupported webhook event ${event.type} tried`);
+      }
+
+      response.status(200).send("200 OK");
+    });
