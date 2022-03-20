@@ -6,22 +6,22 @@ defineProps(["size", "color"]);
   <div class="lds-ring" :style="{ width: size + 'px', height: size + 'px' }">
     <div
       :style="{
-        width: size - 5 + 'px',
-        height: size - 4 + 'px',
+        width: size - 6 + 'px',
+        height: size - 6 + 'px',
         borderColor: color + ' transparent transparent transparent',
       }"
     ></div>
     <div
       :style="{
-        width: size - 5 + 'px',
-        height: size - 4 + 'px',
+        width: size - 6 + 'px',
+        height: size - 6 + 'px',
         borderColor: color + ' transparent transparent transparent',
       }"
     ></div>
     <div
       :style="{
-        width: size - 5 + 'px',
-        height: size - 4 + 'px',
+        width: size - 6 + 'px',
+        height: size - 6 + 'px',
         borderColor: color + ' transparent transparent transparent',
       }"
     ></div>
@@ -32,17 +32,13 @@ defineProps(["size", "color"]);
 .lds-ring {
   display: inline-block;
   position: relative;
-  width: 24px;
-  height: 24px;
 }
 .lds-ring div {
   box-sizing: border-box;
   display: block;
   position: absolute;
-  width: 20px;
-  height: 20px;
-  margin: 2px;
   border: 3px solid #fff;
+  margin: 2px;
   border-radius: 50%;
   animation: lds-ring 1.2s cubic-bezier(0.5, 0, 0.5, 1) infinite;
   border-color: #fff transparent transparent transparent;

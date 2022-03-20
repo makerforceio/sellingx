@@ -52,7 +52,6 @@ let userDataUnsub = null;
 const infoMessage = ref(null);
 const errorMessage = ref(null);
 const successMessage = ref(null);
-const isSigningIn = ref(false);
 const signInButtonLoading = ref(false);
 const events = ref(null);
 
@@ -389,7 +388,7 @@ const buyModalOff = () => {
 const sellModalOn = () => {
   if (!user.value) {
     // User not logged in
-    errorMessage.value = "Login above to sell a ticket 😉";
+    infoMessage.value = "Login above to sell a ticket 😉";
     return;
   }
 
@@ -502,7 +501,7 @@ const signout = () => {
         />
         <button
           :disabled="signInButtonLoading"
-          class="w-28 sm:block hidden bg-gray-900 color-white ml-2 rounded text-white px-4 py-2 uppercase hover:bg-gray-600"
+          class="w-28 sm:flex flex-row justify-center items-center hidden bg-gray-900 color-white ml-2 rounded text-white px-4 py-2 uppercase hover:bg-gray-600"
           @click="signin"
         >
           <span v-if="!signInButtonLoading">Sign In</span>
@@ -524,7 +523,7 @@ const signout = () => {
         v-model="email"
       />
       <button
-        class="w-28 bg-gray-900 color-white ml-2 rounded text-white px-4 py-2 uppercase hover:bg-gray-600"
+        class="w-28 flex flex-row justify-center items-center bg-gray-900 color-white ml-2 rounded text-white px-4 py-2 uppercase hover:bg-gray-600"
         @click="signin"
       >
         <span v-if="!signInButtonLoading">Sign In</span>
@@ -582,7 +581,7 @@ const signout = () => {
         ❮ back
       </button>
       <button
-        class="bg-gray-100 color-white rounded px-4 py-2 uppercase hover:bg-gray-200 ml-2"
+        class="flex justify-center items-center bg-gray-100 color-white rounded px-4 py-2 uppercase hover:bg-gray-200 ml-2"
         @click="sellModalOn"
       >
         <span v-if="!stripeConnectLoading">➕ sell</span>
