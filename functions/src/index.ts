@@ -283,11 +283,11 @@ export const webhook = functions.https.onRequest(async (request, response) => {
     }
 
     const buyer = await admin.auth().getUser(doc.buyer);
-    const tEvent = await db.doc(`events/${doc.event}/tickets/${doc.ticket}`)
+    const ticketEvent = await db.doc(`events/${doc.event}`)
         .get()
         .then((d) => d.data());
 
-    if (tEvent == undefined) {
+    if (ticketEvent == undefined) {
       response.status(404).send("404 Event Not Found");
       return;
     }
@@ -299,7 +299,7 @@ export const webhook = functions.https.onRequest(async (request, response) => {
     const msg = {
       to: buyer.email,
       from: process.env.SENDGRID_SENDER_EMAIL || "sellingx@octalorca.me",
-      subject: `Your ${tEvent.name} ticket!`,
+      subject: `Your ${ticketEvent.name || ""} ticket!`,
       text: "Thank you! Your ticket is attached!",
       attachments: [
         {
