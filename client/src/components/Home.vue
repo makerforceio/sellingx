@@ -27,7 +27,8 @@ import EventListElement from "./EventListElement.vue";
 import TicketListElement from "./TicketListElement.vue";
 import LoadingSpinner from "./LoadingSpinner.vue";
 
-const hostUrl = "https://sellingx-a6131.web.app/"
+// const hostUrl = "https://sellingx-a6131.web.app/"
+const hostUrl = "http://localhost:3000/"
 
 // Firebase passwordless settings
 const actionCodeSettings = {
@@ -447,14 +448,15 @@ const notMyTickets = computed(() => {
 const signin = () => {
   signInButtonLoading.value = true;
   const auth = getAuth();
-  sendSignInLinkToEmail(auth, email.value, actionCodeSettings)
+  const emailSanitized = email.value.trim();
+  sendSignInLinkToEmail(auth, emailSanitized, actionCodeSettings)
     .then(() => {
       // Save the email locally so you don't need to ask the user for it again
       // if they open the link on the same device.
-      window.localStorage.setItem("emailForSignIn", email.value);
-      email.value = email.value;
+      window.localStorage.setItem("emailForSignIn", emailSanitized);
       signInButtonLoading.value = false;
-      isSigningIn.value = true;
+      infoMessage.value = `A magic email is on the way. Please check ${emailSanitized} and click the link on the same
+      device 🚀`;
     })
     .catch((error) => {
       console.log(error.code);
@@ -530,16 +532,6 @@ const signout = () => {
       </button>
     </div>
   </nav>
-
-  <!-- Magic Link Messages -->
-  <div
-    v-if="isSigningIn"
-    class="mb-4 bg-yellow-50 border-yellow-300 border rounded w-full px-4 py-3 text-yellow-600 text-sm"
-  >
-    A magic email is on the way. Please check
-    <span class="font-semibold">{{ email }}</span> and open the email we've sent
-    you on the same browser 🚀
-  </div>
 
   <!-- Info Messages -->
   <div
