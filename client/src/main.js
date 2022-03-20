@@ -4,6 +4,7 @@ import "./index.css";
 
 import { initializeApp } from "firebase/app";
 import { getAnalytics } from "firebase/analytics";
+import { initializeAppCheck, ReCaptchaV3Provider } from "firebase/app-check";
 
 // Your web app's Firebase configuration
 const firebaseConfig = {
@@ -17,8 +18,17 @@ const firebaseConfig = {
   measurementId: "G-YJK6XXWL3Z"
 };
 
+const appCheck = initializeAppCheck(app, {
+  provider: new ReCaptchaV3Provider('6LeKmvYeAAAAAKs4wv7EFOHvJIvTRk9axtzC29ek'),
+
+  // Optional argument. If true, the SDK automatically refreshes App Check
+  // tokens as needed.
+  isTokenAutoRefreshEnabled: true
+});
+
 // Initialize Firebase
 const fb_app = initializeApp(firebaseConfig);
 const analytics = getAnalytics(fb_app);
+
 
 createApp(App).mount("#app");
