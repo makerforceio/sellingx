@@ -15,6 +15,7 @@ const stripe = new Stripe(process.env.STRIPE_API_KEY || "", {
 });
 
 const webhookSecret = process.env.STRIPE_WEBHOOK_SECRET || "";
+const webhookConnectSecret = process.env.STRIPE_CONNECT_WEBHOOK_SECRET || "";
 
 // // Start writing Firebase Functions
 // // https://firebase.google.com/docs/functions/typescript
@@ -217,6 +218,21 @@ export const buyTicket = functions.https.onCall(async (data, context) => {
         "seller does not have a recorded Stripe account");
   }
 
+  const sellerInformation = await stripe.accounts.retrieve(stripeDoc.stripe_id)
+      .catch((e) => {
+        functions.logger.warn(e, {structuredData: true});
+        throw new functions.https.HttpsError(
+            "invalid-argument",
+            "seller does not have a recorded Stripe account");
+      });
+
+  if (sellerInformation.capabilities == undefined ||
+      sellerInformation.capabilities.transfers != "active") {
+    throw new functions.https.HttpsError(
+        "invalid-argument",
+        "seller cannot receive payment");
+  }
+
   const paymentIntent = await stripe.paymentIntents.create({
     amount: doc.price * 100 + 30,
     currency: "gbp",
@@ -245,7 +261,7 @@ export const webhook = functions.https.onRequest(async (request, response) => {
   let event;
   try {
     event = stripe.webhooks.constructEvent(
-        request.body,
+        request.rawBody,
         request.headers["stripe-signature"] as string,
         webhookSecret,
     );
@@ -267,11 +283,11 @@ export const webhook = functions.https.onRequest(async (request, response) => {
     }
 
     const buyer = await admin.auth().getUser(doc.buyer);
-    const tEvent = await db.doc(`events/${doc.event}/tickets/${doc.ticket}`)
+    const ticketEvent = await db.doc(`events/${doc.event}`)
         .get()
         .then((d) => d.data());
 
-    if (tEvent == undefined) {
+    if (ticketEvent == undefined) {
       response.status(404).send("404 Event Not Found");
       return;
     }
@@ -283,7 +299,7 @@ export const webhook = functions.https.onRequest(async (request, response) => {
     const msg = {
       to: buyer.email,
       from: process.env.SENDGRID_SENDER_EMAIL || "sellingx@octalorca.me",
-      subject: `Your ${tEvent.name} ticket!`,
+      subject: `Your ${ticketEvent.name || ""} ticket!`,
       text: "Thank you! Your ticket is attached!",
       attachments: [
         {
@@ -336,3 +352,46 @@ export const webhook = functions.https.onRequest(async (request, response) => {
 
   response.status(200).send("200 OK");
 });
+
+export const webhookConnect = functions.https
+    .onRequest(async (request, response) => {
+      let event;
+      try {
+        event = stripe.webhooks.constructEvent(
+            request.rawBody,
+            request.headers["stripe-signature"] as string,
+            webhookConnectSecret,
+        );
+      } catch (err) {
+        functions.logger.warn(err, {structuredData: true});
+        response.status(500).send("500 Internal Server Error");
+        return;
+      }
+
+      if (event.type == "account.updated") {
+        const account = event.data.object as Stripe.Account;
+        const uid = await db.doc(`aids/${account.id}`)
+            .get()
+            .then((doc) => doc.data())
+            .then((data) => data ? data.uid : undefined);
+
+        if (uid == undefined) {
+          response.status(404).send("404 User Not Found");
+          return;
+        }
+
+        const payable = account.capabilities ?
+            account.capabilities.transfers == "active" : false;
+
+        await db.doc(`users/${uid}`)
+            .set({
+              payable,
+            }, {
+              merge: true,
+            });
+      } else {
+        functions.logger.info(`Unsupported webhook event ${event.type} tried`);
+      }
+
+      response.status(200).send("200 OK");
+    });
