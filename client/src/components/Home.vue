@@ -82,6 +82,7 @@ const ticketFile = ref(null);
 const ticketPrice = ref(null);
 const selectedFileName = ref(null);
 const sellButtonLoading = ref(false);
+const errorMessageSellModal = ref(null);
 
 // Sell Update Modal
 const showSellUpdateModal = ref(false);
@@ -267,6 +268,12 @@ const onTicketUpload = () => {
 
 function updateTicketPrice() {
   updateButtonLoading.value = true;
+  
+  if(!newTicketPrice.value) {
+    errorMessageUpdateModal.value = "Invalid form fields!";
+    updateButtonLoading.value = false;
+    return;
+  }
 
   const fStore = getFirestore();
   const ticketRef = doc(
@@ -306,6 +313,18 @@ function cancelTicketSale() {
 
 function sellTicket() {
   sellButtonLoading.value = true;
+
+  if(!ticketFile.value.files[0] || !ticketPrice.value) {
+    errorMessageSellModal.value = "Invalid form fields!";
+    sellButtonLoading.value = false;
+    return;
+  }
+
+  if(ticketPrice.value == "") {
+    errorMessageSellModal.value = "Selling price must be a number!";
+    sellButtonLoading.value = false;
+    return;
+  }
 
   // Uploading ticket to file storage
   const storage = getStorage();
@@ -410,6 +429,7 @@ const sellModalOn = () => {
 
 const sellModalOff = () => {
   showSellModal.value = false;
+  errorMessageSellModal.value = null;
 };
 
 const sellUpdateModalOn = (ticket) => {
@@ -797,7 +817,7 @@ const signout = () => {
           }}
         </h2>
       </div>
-      <div class="flex flex-row w-full mt-2 mb-6">
+      <div class="flex flex-row w-full mt-2">
         <div
           class="flex flex-row justify-center px-4 py-2 mr-2 rounded bg-gray-100"
         >
@@ -810,7 +830,13 @@ const signout = () => {
           v-model="ticketPrice"
         />
       </div>
-      <div class="flex flex-row w-full my-2">
+      <div
+        v-if="errorMessageSellModal != null"
+        class="mb-4 bg-red-50 border-red-300 border rounded w-full py-2 px-4 text-red-600 text-sm mt-4"
+      >
+        {{ errorMessageSellModal }}
+      </div>
+      <div class="flex flex-row w-full mt-6">
         <button
           @click="sellTicket"
           :disabled="sellButtonLoading"
