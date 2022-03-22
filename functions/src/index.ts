@@ -4,6 +4,7 @@ import {DocumentSnapshot} from "firebase-admin/firestore";
 
 import Stripe from "stripe";
 import * as sendgrid from "@sendgrid/mail";
+import * as mime from "mime-types";
 
 admin.initializeApp();
 
@@ -113,18 +114,27 @@ export const signup = functions.https.onCall(async (data, context) => {
   }
 
   const account = await stripe.accounts.create({
-    type: "express",
+    type: "standard",
     country: "GB",
     email: context.auth.token.email,
     business_type: "individual",
     business_profile: {
       product_description: "tickets",
       mcc: "7299",
+      url: "https://sellingx.io",
     },
-    capabilities: {
-      card_payments: {requested: true},
-      transfers: {requested: true},
+    settings: {
+      payments: {
+        statement_descriptor: "SellingX",
+      },
+      payouts: {
+        statement_descriptor: "SellingX",
+      },
     },
+    // capabilities: {
+    //   // card_payments: {requested: true},
+    //   transfers: {requested: true},
+    // },
   });
 
   await db.doc(`stripes/${context.auth.uid}`)
@@ -218,28 +228,15 @@ export const buyTicket = functions.https.onCall(async (data, context) => {
         "seller does not have a recorded Stripe account");
   }
 
-  const sellerInformation = await stripe.accounts.retrieve(stripeDoc.stripe_id)
-      .catch((e) => {
-        functions.logger.warn(e, {structuredData: true});
-        throw new functions.https.HttpsError(
-            "invalid-argument",
-            "seller does not have a recorded Stripe account");
-      });
-
-  if (sellerInformation.capabilities == undefined ||
-      sellerInformation.capabilities.transfers != "active") {
-    throw new functions.https.HttpsError(
-        "invalid-argument",
-        "seller cannot receive payment");
-  }
-
+  // const markup = doc.price * 100 * 0.014 + 20 + 30;
+  const markup = 80;
   const paymentIntent = await stripe.paymentIntents.create({
-    amount: doc.price * 100 + 30,
+    amount: doc.price * 100 + markup,
     currency: "gbp",
     payment_method_types: [
       "card",
     ],
-    application_fee_amount: 30,
+    application_fee_amount: markup,
     transfer_data: {
       destination: stripeDoc.stripe_id,
     },
@@ -272,8 +269,8 @@ export const webhook = functions.https.onRequest(async (request, response) => {
   }
 
   if (event.type == "payment_intent.succeeded") {
-    const id = (event.data.object as Stripe.PaymentIntent).id;
-    const doc = await db.doc(`transactions/${id}`)
+    const pi = event.data.object as Stripe.PaymentIntent;
+    const doc = await db.doc(`transactions/${pi.id}`)
         .get()
         .then((d) => d.data());
 
@@ -293,25 +290,55 @@ export const webhook = functions.https.onRequest(async (request, response) => {
     }
 
     const [file] = await bucket.file(doc.ticket)
-        .get()
-        .then(([file]) => file.download());
+        .get();
 
-    const msg = {
+
+    const [metadata] = await file.getMetadata();
+    const [data] = await file.download();
+
+    const buyerMsg = {
       to: buyer.email,
       from: process.env.SENDGRID_SENDER_EMAIL || "sellingx@octalorca.me",
       subject: `Your ${ticketEvent.name || ""} ticket!`,
       text: "Thank you! Your ticket is attached!",
       attachments: [
         {
-          content: file.toString("base64"),
-          filename: "ticket.pdf",
-          type: "application/pdf",
+          content: data.toString("base64"),
+          filename: `ticket.${mime.extension(metadata.contentType)}`,
+          type: metadata.contentType,
           disposition: "attachment",
         },
       ],
     };
 
-    await sendgrid.send(msg);
+    await sendgrid.send(buyerMsg);
+
+    const seller = await db.doc(`events/${doc.event}/tickets/${doc.ticket}`)
+        .get()
+        .then((d) => d.data())
+        .then((d) => {
+          if (d != undefined) {
+            return admin.auth().getUser(d.seller_id);
+          } else {
+            return undefined;
+          }
+        });
+
+    if (seller != undefined) {
+      // eslint-disable-next-line
+      const soldAmount = `£${((pi.amount - (pi.application_fee_amount || 0)) / 100).toFixed(2)}`;
+      const sellerMsg = {
+        to: seller.email,
+        from: process.env.SENDGRID_SENDER_EMAIL || "sellingx@octalorca.me",
+        // eslint-disable-next-line
+        subject: `Your ${ticketEvent.name || ""} ticket has been sold for ${soldAmount}!`,
+        // eslint-disable-next-line
+        text: `Congratulations! Your ${ticketEvent.name || ""} ticket has been sold for ${soldAmount}! Sign in and check your Stripe Dashboard to withdraw your money.`,
+      };
+
+      await sendgrid.send(sellerMsg);
+    }
+
 
     await db.doc(`events/${doc.event}/tickets/${doc.ticket}`)
         .set({
@@ -320,11 +347,11 @@ export const webhook = functions.https.onRequest(async (request, response) => {
           merge: true,
         });
 
-    await db.doc(`transactions/${id}`)
+    await db.doc(`transactions/${pi.id}`)
         .delete();
   } else if (event.type == "payment_intent.payment_failed") {
-    const id = (event.data.object as Stripe.PaymentIntent).id;
-    await db.doc(`transactions/${id}`).delete();
+    // const id = (event.data.object as Stripe.PaymentIntent).id;
+    // await db.doc(`transactions/${id}`).delete();
   } else if (event.type == "account.updated") {
     const account = event.data.object as Stripe.Account;
     const uid = await db.doc(`aids/${account.id}`)
