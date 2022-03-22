@@ -333,7 +333,6 @@ function sellTicket() {
   const ticketRef = storageref(storage, ticketUid);
 
   const metadata = {
-    contentType: "application/pdf",
     customMetadata: {
       seller: user.value.uid,
       price: ticketPrice.value,
@@ -357,8 +356,12 @@ function payForTicket() {
       return_url: hostUrl + "?successBuy=true",
     },
   }).then(function(result) {
-    if (result.error){
-      errorMessageBuyModal.value = "Unable to complete purchase, report any bugs below!";
+    if (result.error) {
+      if(result.error.type == "card_error")
+        errorMessageBuyModal.value = "There is an error with your card, try again.";
+      else
+        errorMessageBuyModal.value = "Unable to complete purchase, report any bugs below!";
+
       buyButtonLoading.value = false;
     }
   });
@@ -426,8 +429,10 @@ const sellModalOn = () => {
     return;
   }
 
-  if (!userData.value.payable)
-    infoMessage.value = "Your stripe onboarding is not processed, try again in a while!"
+  if (!userData.value.payable) {
+    infoMessage.value = "Your payments onboarding is not completed. Activate your account @ https://dashboard.stripe.com/account/onboarding to start selling.";
+    return;
+  }
 
   showSellModal.value = true;
 };
@@ -480,6 +485,15 @@ const signin = () => {
   signInButtonLoading.value = true;
   const auth = getAuth();
   const emailSanitized = email.value.trim();
+
+  // Check and block UCL emails
+  let regex = /^[a-zA-Z]+@ucl\.ac\.uk$/i;
+  if(regex.test(emailSanitized)) {
+    infoMessage.value = "UCL's email seems to filter us out as spam, try using a different email while we ask them to whitelist us 🥲"
+    signInButtonLoading.value = false;
+    return;
+  }
+
   sendSignInLinkToEmail(auth, emailSanitized, actionCodeSettings)
     .then(() => {
       // Save the email locally so you don't need to ask the user for it again
@@ -509,7 +523,7 @@ const signout = () => {
 </script>
 
 <template>
-  <nav class="flex flex-col sm:pb-6">
+  <nav class="flex flex-col sm:pb-6 text-sm sm:text-base">
     <div class="flex flex-row items-center">
       <h1 class="text-3xl font-semibold">sellingx</h1>
       <template v-if="user">
@@ -593,6 +607,10 @@ const signout = () => {
 
   <!-- Events View -->
   <template v-if="page == 'events'">
+    <div class="flex flex-row w-full text-sm py-2 bg-transparent">
+      <h1 class="text-gray-600">Event Details</h1>
+      <h2 class="ml-auto text-gray-600">Avg. Price</h2>
+    </div>
     <EventListElement
       v-for="event in events"
       :name="event.name"
@@ -622,7 +640,7 @@ const signout = () => {
     </div>
 
     <div class="flex flex-row w-full items-center">
-      <h1 class="text-3xl font-semibold uppercase">{{ activeEvent.name }}</h1>
+      <h1 class="text-2xl sm:text-3xl font-semibold uppercase">{{ activeEvent.name }}</h1>
       <div
         class="flex flex-row w-24 justify-center px-4 py-2 ml-auto rounded"
         :class="{
@@ -634,14 +652,14 @@ const signout = () => {
         <h2 class="ml-2 text-white">£{{ activeEvent.price.toFixed(2) }}</h2>
       </div>
     </div>
-    <h2 class="ml-auto font-light text-gray-500 text-xl mb-4">
+    <h2 class="ml-auto font-light text-gray-500 text-lg sm:text-xl mb-4">
       {{ activeEvent.readableDate }}
     </h2>
 
     <!-- Selling Tickets -->
     <div
       v-if="user"
-      class="bg-gray-100 rounded w-full font-semibold px-4 py-2 text-gray-500 font-normal"
+      class="bg-gray-100 rounded w-full px-4 py-2 text-gray-500 text-sm sm:text-base"
     >
       {{ (myActiveTickets.length != 0) ? "My Selling Tickets" : "Sell a ticket using the button above 😜" }} 
     </div>
@@ -660,9 +678,9 @@ const signout = () => {
 
     <div
       v-if="notMyTickets.length == 0"
-      class="bg-red-100 rounded w-full font-semibold px-4 py-2 text-red-500 font-normal"
+      class="bg-red-100 rounded w-full px-4 py-2 text-red-500 text-sm sm:text-base"
     >
-      No tickets are selling for this event yet 😔
+      No available tickets for this event right now 😔
     </div>
 
     <TicketListElement
@@ -682,7 +700,7 @@ const signout = () => {
       class="flex flex-col w-full sm:w-10/12 md:w-8/12 lg:w-4/12 m-2 p-6 bg-white rounded"
     >
       <div class="flex flex-row w-full items-center">
-        <h1 class="text-3xl font-semibold uppercase">{{ activeEvent.name }}</h1>
+        <h1 class="text-2xl sm:text-3xl font-semibold uppercase">{{ activeEvent.name }}</h1>
         <div
           class="flex flex-row w-24 justify-center px-4 py-2 ml-auto rounded"
           :class="{
@@ -694,17 +712,17 @@ const signout = () => {
           <h2 class="ml-2 text-white">£{{ activeEvent.price.toFixed(2) }}</h2>
         </div>
       </div>
-      <h2 class="font-light text-gray-500 text-xl mb-4">
+      <h2 class="font-light text-gray-500 text-lg sm:text-xl mb-4">
         {{ activeEvent.readableDate }}
       </h2>
       <div class="flex flex-row w-full my-2">
         <div
           class="flex flex-row w-24 justify-center px-4 py-2 mr-2 rounded bg-gray-100"
         >
-          <h2 class="text-gray-500 font-semibold">Seller</h2>
+          <h2 class="text-gray-500 font-semibold text-sm sm:text-base">Seller</h2>
         </div>
         <div class="bg-gray-100 w-full flex flex-row px-4 py-2 rounded">
-          <h1 class="text-gray-500">{{ buyTicket.email }}</h1>
+          <h1 class="text-gray-500 text-sm sm:text-base">{{ buyTicket.email }}</h1>
         </div>
       </div>
       <div
@@ -712,19 +730,19 @@ const signout = () => {
         class="bg-gray-100 w-full flex flex-row justify-center items-center px-4 py-2 rounded"
       >
         <LoadingSpinner size="24" color="#6b7280" class="mr-2" />
-        <h1 class="text-gray-500">Loading payment options...</h1>
+        <h1 class="text-gray-500 text-sm sm:text-base">Loading payment options...</h1>
       </div>
       <div
         v-if="!paymentOptionsLoading"
-        class="bg-gray-100 w-full flex flex-row px-4 py-2 mt-4 rounded"
+        class="bg-gray-100 w-full flex flex-row px-4 py-2 mt-2 sm:mt-4 rounded"
       >
-        <h1 class="text-gray-500">Payment Details</h1>
+        <h1 class="text-gray-500 text-sm sm:text-base">Payment Details</h1>
       </div>
       <div v-show="!paymentOptionsLoading" class="mt-4" id="payment-element">
         <!-- Elements will create form elements here -->
       </div>
       <div class="text-gray-500 text-xs mt-4">
-        We charge a £0.30 transaction fee to pay for hosting :)
+        We charge a £0.80 transaction fee to pay for hosting and transactions :)
       </div>
       <div
         v-if="errorMessageBuyModal != null"
@@ -738,7 +756,7 @@ const signout = () => {
           class="flex justify-center items-center bg-green-500 color-white rounded text-white px-4 py-2 uppercase hover:bg-green-600 grow mr-2"
           @click="payForTicket"
         >
-          <span v-if="!buyButtonLoading">Buy £{{ (buyTicket.price + 0.30).toFixed(2) }}</span>
+          <span v-if="!buyButtonLoading">Buy £{{ (buyTicket.price + 0.80).toFixed(2) }}</span>
           <LoadingSpinner size="24" color="#fff" v-if="buyButtonLoading" />
         </button>
         <button
@@ -760,7 +778,7 @@ const signout = () => {
       class="flex flex-col w-full sm:w-10/12 md:w-8/12 lg:w-4/12 m-2 p-6 bg-white rounded"
     >
       <div class="flex flex-row w-full items-center">
-        <h1 class="text-3xl font-semibold uppercase">{{ activeEvent.name }}</h1>
+        <h1 class="text-2xl sm:text-3xl font-semibold uppercase">{{ activeEvent.name }}</h1>
         <div
           class="flex flex-row w-24 justify-center px-4 py-2 ml-auto rounded"
           :class="{
@@ -772,7 +790,7 @@ const signout = () => {
           <h2 class="ml-2 text-white">£{{ activeEvent.price.toFixed(2) }}</h2>
         </div>
       </div>
-      <h2 class="font-light text-gray-500 text-xl mb-4">
+      <h2 class="font-light text-gray-500 text-lg sm:text-xl mb-4">
         {{ activeEvent.readableDate }}
       </h2>
       <div class="flex items-center justify-center w-full">
@@ -876,7 +894,7 @@ const signout = () => {
       class="flex flex-col w-full sm:w-10/12 md:w-8/12 lg:w-4/12 m-2 p-6 bg-white rounded"
     >
       <div class="flex flex-row w-full items-center">
-        <h1 class="text-3xl font-semibold uppercase">{{ activeEvent.name }}</h1>
+        <h1 class="text-2xl sm:text-3xl font-semibold uppercase">{{ activeEvent.name }}</h1>
         <div
           class="flex flex-row w-24 justify-center px-4 py-2 ml-auto rounded"
           :class="{
@@ -888,7 +906,7 @@ const signout = () => {
           <h2 class="ml-2 text-white">£{{ activeEvent.price.toFixed(2) }}</h2>
         </div>
       </div>
-      <h2 class="font-light text-gray-500 text-xl mb-4">
+      <h2 class="font-light text-gray-500 text-lg sm:text-xl mb-4">
         {{ activeEvent.readableDate }}
       </h2>
       <div class="flex flex-row w-full mt-2">
