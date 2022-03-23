@@ -113,42 +113,46 @@ export const signup = functions.https.onCall(async (data, context) => {
         "The function must be called while authenticated");
   }
 
-  const account = await stripe.accounts.create({
-    type: "standard",
-    country: "GB",
-    email: context.auth.token.email,
-    business_type: "individual",
-    business_profile: {
-      product_description: "tickets",
-      mcc: "7299",
-      url: "https://sellingx.io",
-    },
-    settings: {
-      payments: {
-        statement_descriptor: "SellingX",
-      },
-      payouts: {
-        statement_descriptor: "SellingX",
-      },
-    },
-    // capabilities: {
-    //   // card_payments: {requested: true},
-    //   transfers: {requested: true},
-    // },
-  });
+  const sid = await db.doc(`stripes/${doc.seller_id}`)
+      .get()
+      .then((d) => d.data())
+      .then((d) => d ? d.stripe_id : undefined);
 
-  await db.doc(`stripes/${context.auth.uid}`)
+  let id;
+  if (sid == undefined) {
+    const account = await stripe.accounts.create({
+      type: "express",
+      country: "GB",
+      email: context.auth.token.email,
+      business_type: "individual",
+      business_profile: {
+        product_description: "tickets",
+        mcc: "7299",
+      },
+      capabilities: {
+        card_payments: {requested: true},
+        transfers: {requested: true},
+      },
+    });
+
+    id = account.id;
+
+    await db.doc(`stripes/${context.auth.uid}`)
       .set({
         stripe_id: account.id,
       });
 
-  await db.doc(`aids/${account.id}`)
+
+   await db.doc(`aids/${account.id}`)
       .set({
         uid: context.auth.uid,
       });
+  } else {
+    id = sid;
+  }
 
   const accountLink = await stripe.accountLinks.create({
-    account: account.id,
+    account: id,
     refresh_url: `${process.env.SIGNUP_REFRESH_URL}?id=${account.id}`,
     return_url: process.env.SIGNUP_RETURN_URL,
     type: "account_onboarding",

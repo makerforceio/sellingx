@@ -430,7 +430,8 @@ const sellModalOn = () => {
   }
 
   if (!userData.value.payable) {
-    infoMessage.value = "Your payments onboarding is not completed. Activate your account @ https://dashboard.stripe.com/account/onboarding to start selling.";
+    stripeConnectLoading.value = true;
+    startStripeConnect();
     return;
   }
 
