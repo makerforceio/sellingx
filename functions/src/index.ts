@@ -113,7 +113,7 @@ export const signup = functions.https.onCall(async (data, context) => {
         "The function must be called while authenticated");
   }
 
-  const sid = await db.doc(`stripes/${doc.seller_id}`)
+  const sid = await db.doc(`stripes/${context.auth.uid}`)
       .get()
       .then((d) => d.data())
       .then((d) => d ? d.stripe_id : undefined);
@@ -153,7 +153,7 @@ export const signup = functions.https.onCall(async (data, context) => {
 
   const accountLink = await stripe.accountLinks.create({
     account: id,
-    refresh_url: `${process.env.SIGNUP_REFRESH_URL}?id=${account.id}`,
+    refresh_url: `${process.env.SIGNUP_REFRESH_URL}?id=${id}`,
     return_url: process.env.SIGNUP_RETURN_URL,
     type: "account_onboarding",
   });
