@@ -30,7 +30,7 @@ import LoadingSpinner from "./LoadingSpinner.vue";
 let hostUrl;
 // CHECK FOR DEV MODE
 if(window.location.hostname == 'localhost')
-  hostUrl = `http://${window.location.host}/` 
+  hostUrl = `http://${window.location.host}/`
 else
   hostUrl = `https://${window.location.host}/`;
 
@@ -47,7 +47,7 @@ const actionCodeSettings = {
 // Stripe settings (imported in index)
 const stripe = Stripe(
   "pk_live_51Kc9zuICM6wKNignVh7ttMDklHvI6R6MGbw3dXzi9YSfm7W1qjexw6Cs9uO8n1JYtUD8eyTtnxwU45FZrTnVu5W400W82weKwJ"
-  // "pk_test_51Kc9zuICM6wKNignNV224oUSa4Rs07yOKbQlQsJECDiFJE42RE3bOntjdXBV1gMvpW8f38qGqtZIoWVVzfYFpKAu005DLPPYTE" 
+  // "pk_test_51Kc9zuICM6wKNignNV224oUSa4Rs07yOKbQlQsJECDiFJE42RE3bOntjdXBV1gMvpW8f38qGqtZIoWVVzfYFpKAu005DLPPYTE"
 );
 
 const email = ref("");
@@ -76,6 +76,14 @@ const buyButtonLoading = ref(false);
 const paymentOptionsLoading = ref(false);
 const errorMessageBuyModal = ref(null);
 let stripeElements = null;
+
+// Onboarding Modal Stuff
+const showOnboardingModal = ref(false);
+const sortCode = ref(null);
+const accountNumber = ref(null);
+const onboardingButtonLoading = ref(false);
+const errorMessageOnboardingModal = ref(null);
+const selling = ref(false);
 
 // Sell Modal Stuff
 const showSellModal = ref(false);
@@ -121,7 +129,7 @@ onMounted(() => {
     signInWithEmailLink(auth, email, window.location.href)
       .then((result) => {
         window.localStorage.removeItem("emailForSignIn");
-        window.location.replace(hostUrl); 
+        window.location.replace(hostUrl);
       })
       .catch(() => {
         // Probably an expired token or something let's just silently fail
@@ -269,7 +277,7 @@ const onTicketUpload = () => {
 
 function updateTicketPrice() {
   updateButtonLoading.value = true;
-  
+
   if(!newTicketPrice.value) {
     errorMessageUpdateModal.value = "Invalid form fields!";
     updateButtonLoading.value = false;
@@ -344,6 +352,39 @@ function sellTicket() {
     sellButtonLoading.value = false;
     sellModalOff();
     console.log("Uploaded the ticket!");
+  });
+}
+
+function onboarding() {
+  onboardingButtonLoading.value = true;
+
+  if(accountNumber.value == "") {
+    errorMessageOnboardingModal.value = "Account number must be a number!";
+    onboardingButtonLoading.value = false;
+    return;
+  }
+
+  if(sortCode.value == "") {
+    errorMessageOnboardingModal.value = "Sort code must be a number!";
+    onboardingButtonLoading.value = false;
+    return;
+  }
+
+  const functions = getFunctions();
+  const signup = httpsCallable(functions, "signup");
+  signup({
+    account_number: accountNumber.value,
+    sort_code: sortCode.value,
+  })
+  .then((result) => {
+    onboardingButtonLoading.value = false;
+    onboardingModalOff();
+    console.log("Onboarded!");
+  })
+  .catch(() => {
+    // Probably the user is not authenticated
+    infoMessage.value =
+      "We don't know who you are. Login above to sell a ticket 😉";
   });
 }
 
@@ -425,13 +466,17 @@ const sellModalOn = () => {
 
   if (!userData.value) {
     stripeConnectLoading.value = true;
-    startStripeConnect();
+    selling.value = true;
+    onboardingModalOn();
+    // startStripeConnect();
     return;
   }
 
   if (!userData.value.payable) {
     stripeConnectLoading.value = true;
-    startStripeConnect();
+    selling.value = true;
+    onboardingModalOn();
+    // startStripeConnect();
     return;
   }
 
@@ -441,6 +486,19 @@ const sellModalOn = () => {
 const sellModalOff = () => {
   showSellModal.value = false;
   errorMessageSellModal.value = null;
+};
+
+const onboardingModalOn = () => {
+  showOnboardingModal.value = true;
+};
+
+const onboardingModalOff = () => {
+  showOnboardingModal.value = false;
+  errorMessageOnboardingModal.value = null;
+
+  if (selling.value == true) {
+    sellModalOn();
+  }
 };
 
 const sellUpdateModalOn = (ticket) => {
@@ -473,7 +531,7 @@ const myActiveTickets = computed(() => {
 });
 
 const notMyTickets = computed(() => {
-  if(user.value != null) 
+  if(user.value != null)
     return activeTickets.value.filter(
       (ticket) => ticket.sellerId != user.value.uid
     );
@@ -594,7 +652,7 @@ const signout = () => {
   >
     {{ errorMessage }}
   </div>
-  
+
     <!-- Success Messages -->
   <div
     v-if="successMessage != null"
@@ -662,7 +720,7 @@ const signout = () => {
       v-if="user"
       class="bg-gray-100 rounded w-full px-4 py-2 text-gray-500 text-sm sm:text-base"
     >
-      {{ (myActiveTickets.length != 0) ? "My Selling Tickets" : "Sell a ticket using the button above 😜" }} 
+      {{ (myActiveTickets.length != 0) ? "My Selling Tickets" : "Sell a ticket using the button above 😜" }}
     </div>
     <TicketListElement
       v-if="user"
@@ -762,6 +820,60 @@ const signout = () => {
         </button>
         <button
           @click="buyModalOff"
+          class="bg-gray-100 color-white rounded px-4 py-2 uppercase hover:bg-gray-200 grow ml-2"
+        >
+          Cancel
+        </button>
+      </div>
+    </div>
+  </div>
+
+  <!-- Sell Modal -->
+  <div
+    v-if="showOnboardingModal"
+    class="absolute inset-0 backdrop-blur-md bg-black/50 z-50 flex justify-center items-center"
+  >
+    <div
+      class="flex flex-col w-full sm:w-10/12 md:w-8/12 lg:w-4/12 m-2 p-6 bg-white rounded"
+    >
+      <div class="flex flex-row w-full items-center">
+        <h1 class="text-2xl sm:text-3xl font-semibold uppercase">Tell us how to pay you!</h1>
+      </div>
+      <div class="flex flex-row w-full mt-2">
+        <input
+          type="number"
+          placeholder="Account Number"
+          maxlength="8"
+          class="bg-gray-100 text-gray-800 w-full rounded p-2"
+          v-model="accountNumber"
+        />
+      </div>
+      <div class="flex flex-row w-full mt-2">
+        <input
+          type="number"
+          placeholder="Sort Code"
+          maxlength="8"
+          class="bg-gray-100 text-gray-800 w-full rounded p-2"
+          v-model="sortCode"
+        />
+      </div>
+      <div
+        v-if="errorMessageOnboardingModal != null"
+        class="mb-4 bg-red-50 border-red-300 border rounded w-full py-2 px-4 text-red-600 text-sm mt-4"
+      >
+        {{ errorMessageOnboardingModal }}
+      </div>
+      <div class="flex flex-row w-full mt-6">
+        <button
+          @click="onboarding"
+          :disabled="onboardingButtonLoading"
+          class="flex justify-center items-center bg-red-500 color-white rounded text-white px-4 py-2 uppercase hover:bg-red-600 grow mr-2"
+        >
+          <span v-if="!onboardingButtonLoading">Let's go!</span>
+          <LoadingSpinner v-if="onboardingButtonLoading" size="24" color="#fff" />
+        </button>
+        <button
+          @click="onboardingModalOff"
           class="bg-gray-100 color-white rounded px-4 py-2 uppercase hover:bg-gray-200 grow ml-2"
         >
           Cancel
