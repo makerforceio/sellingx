@@ -26,6 +26,7 @@ export const helloWorld = functions.https.onRequest((request, response) => {
   response.send("Hello from Firebase!");
 });
 
+/* Updates rolling average of ticket price */
 const onTicketChange = async (
     change: functions.Change<DocumentSnapshot>,
     context: functions.EventContext
@@ -74,6 +75,7 @@ export const updateRollingAverageOnUpdate = functions.firestore
     .document("events/{event}/tickets/{ticket}")
     .onUpdate(onTicketChange);
 
+/* New ticket, populates DB with defaults */
 export const onTicketUpload = functions.storage
     .object()
     .onFinalize(async (object) => {
@@ -106,6 +108,8 @@ export const onTicketUpload = functions.storage
           });
     });
 
+/* Handle user signup */
+// TODO: Remove stripe connect stuff, capture bank details
 export const signup = functions.https.onCall(async (data, context) => {
   if (!context.auth) {
     throw new functions.https.HttpsError(
@@ -113,73 +117,56 @@ export const signup = functions.https.onCall(async (data, context) => {
         "The function must be called while authenticated");
   }
 
-  const sid = await db.doc(`stripes/${context.auth.uid}`)
-      .get()
-      .then((d) => d.data())
-      .then((d) => d ? d.stripe_id : undefined);
+  // Set up non-payable user if sort_code/account-number are not provided
+  if (data.sort_code != undefined && data.account_number != undefined) {
+    if (!/(?:[0-9]{2}-?){3}/.test(data.sort_code)) {
+      throw new functions.https.HttpsError(
+          "invalid-argument",
+          "invalid 'sort_code'");
+    }
 
-  let id;
-  if (sid == undefined) {
-    const account = await stripe.accounts.create({
-      type: "express",
-      country: "GB",
-      email: context.auth.token.email,
-      business_type: "individual",
-      business_profile: {
-        product_description: "tickets",
-        mcc: "7299",
-      },
-      capabilities: {
-        card_payments: {requested: true},
-        transfers: {requested: true},
-      },
-    });
+    // Account numbers are too much of a pain to lazy-validate
+    if (!/[0-9]{0,8}/.test(data.account_number)) {
+      throw new functions.https.HttpsError(
+          "invalid-argument",
+          "invalid 'account_number'");
+    }
 
-    id = account.id;
-
-    await db.doc(`stripes/${context.auth.uid}`)
+    // Set user
+    await db.doc(`users/${context.auth.uid}`)
       .set({
-        stripe_id: account.id,
-      });
-
-
-   await db.doc(`aids/${account.id}`)
-      .set({
-        uid: context.auth.uid,
+        sort_code: data.sort_code,
+        account_number: data.account_number,
+        payable: true,
       });
   } else {
-    id = sid;
+    await db.doc(`users/${context.auth.uid}`)
+      .set({
+        payable: false,
+      });
   }
 
-  const accountLink = await stripe.accountLinks.create({
-    account: id,
-    refresh_url: `${process.env.SIGNUP_REFRESH_URL}?id=${id}`,
-    return_url: process.env.SIGNUP_RETURN_URL,
-    type: "account_onboarding",
-  });
-
-  return {
-    url: accountLink.url,
-  };
+  response.status(200).send("200 OK");
 });
 
-export const signupRefresh = functions.https
-    .onRequest(async (request, response) => {
-      if (!request.query.id) {
-        response.status(400).send("404 ID Not Found");
-        return;
-      }
-
-      const id = request.query.id as string;
-      const accountLink = await stripe.accountLinks.create({
-        account: id,
-        refresh_url: `${process.env.SIGNUP_REFRESH_URL}?id=${id}`,
-        return_url: process.env.SIGNUP_RETURN_URL,
-        type: "account_onboarding",
-      });
-
-      response.status(302).redirect(accountLink.url);
-    });
+// TOFIX: Might not be needed
+// export const signupRefresh = functions.https
+//     .onRequest(async (request, response) => {
+//       if (!request.query.id) {
+//         response.status(400).send("404 ID Not Found");
+//         return;
+//       }
+//
+//       const id = request.query.id as string;
+//       const accountLink = await stripe.accountLinks.create({
+//         account: id,
+//         refresh_url: `${process.env.SIGNUP_REFRESH_URL}?id=${id}`,
+//         return_url: process.env.SIGNUP_RETURN_URL,
+//         type: "account_onboarding",
+//       });
+//
+//       response.status(302).redirect(accountLink.url);
+//     });
 
 export const buyTicket = functions.https.onCall(async (data, context) => {
   if (!context.auth) {
@@ -232,18 +219,16 @@ export const buyTicket = functions.https.onCall(async (data, context) => {
         "seller does not have a recorded Stripe account");
   }
 
-  // const markup = doc.price * 100 * 0.014 + 20 + 30;
-  const markup = 80;
+  const markup = doc.price * 100 * 0.014 + 20 + 50;
+  // const markup = 80;
   const paymentIntent = await stripe.paymentIntents.create({
     amount: doc.price * 100 + markup,
     currency: "gbp",
     payment_method_types: [
       "card",
+      "paynow",
     ],
     application_fee_amount: markup,
-    transfer_data: {
-      destination: stripeDoc.stripe_id,
-    },
   });
 
   await db.doc(`transactions/${paymentIntent.id}`)
