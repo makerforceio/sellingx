@@ -107,6 +107,19 @@ export const onTicketUpload = functions.storage
             sold: false,
           });
     });
+//
+// export const onEventUpload = functions.storage
+//     .object()
+//     .onFinalize(async (object) => {
+//       const average_price = object.average_price || 0;
+//       const previous_price = object.previous_price || 0;
+//
+//       await db.doc(`events/${object.name}`)
+//         .set({
+//           expiry: object.expiry,
+//
+//         });
+//     });
 
 /* Handle user signup */
 // TODO: Remove stripe connect stuff, capture bank details
@@ -146,7 +159,9 @@ export const signup = functions.https.onCall(async (data, context) => {
       });
   }
 
-  response.status(200).send("200 OK");
+  return {
+    result: 'success',
+  };
 });
 
 // TOFIX: Might not be needed
@@ -203,21 +218,21 @@ export const buyTicket = functions.https.onCall(async (data, context) => {
         "'ticket' must have a seller_id");
   }
 
-  const stripeDoc = await db.doc(`stripes/${doc.seller_id}`)
-      .get()
-      .then((d) => d.data());
-
-  if (stripeDoc == undefined) {
-    throw new functions.https.HttpsError(
-        "invalid-argument",
-        "seller not found");
-  }
-
-  if (stripeDoc.stripe_id == undefined) {
-    throw new functions.https.HttpsError(
-        "invalid-argument",
-        "seller does not have a recorded Stripe account");
-  }
+  // const stripeDoc = await db.doc(`stripes/${doc.seller_id}`)
+  //     .get()
+  //     .then((d) => d.data());
+  //
+  // if (stripeDoc == undefined) {
+  //   throw new functions.https.HttpsError(
+  //       "invalid-argument",
+  //       "seller not found");
+  // }
+  //
+  // if (stripeDoc.stripe_id == undefined) {
+  //   throw new functions.https.HttpsError(
+  //       "invalid-argument",
+  //       "seller does not have a recorded Stripe account");
+  // }
 
   const markup = doc.price * 100 * 0.014 + 20 + 50;
   // const markup = 80;
@@ -226,9 +241,7 @@ export const buyTicket = functions.https.onCall(async (data, context) => {
     currency: "gbp",
     payment_method_types: [
       "card",
-      "paynow",
     ],
-    application_fee_amount: markup,
   });
 
   await db.doc(`transactions/${paymentIntent.id}`)
