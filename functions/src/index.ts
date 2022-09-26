@@ -75,6 +75,26 @@ export const updateRollingAverageOnUpdate = functions.firestore
     .document("events/{event}/tickets/{ticket}")
     .onUpdate(onTicketChange);
 
+export const onEventUpload = functions.firestore
+    .document("events/{event}")
+    .onWrite(async (
+        change: functions.Change<DocumentSnapshot>,
+        context: functions.EventContext
+    ) => {
+      const changeData = change.after.data();
+      if (changeData == undefined) {
+        return;
+      }
+
+      await db.doc(`events/${context.params.event}`)
+        .set({
+           average_price: changeData.average_price || 0,
+           previous_price: changeData.previous_price || 0,
+        }, {
+          merge: true,
+        });
+    });
+
 /* New ticket, populates DB with defaults */
 export const onTicketUpload = functions.storage
     .object()
@@ -107,19 +127,6 @@ export const onTicketUpload = functions.storage
             sold: false,
           });
     });
-//
-// export const onEventUpload = functions.storage
-//     .object()
-//     .onFinalize(async (object) => {
-//       const average_price = object.average_price || 0;
-//       const previous_price = object.previous_price || 0;
-//
-//       await db.doc(`events/${object.name}`)
-//         .set({
-//           expiry: object.expiry,
-//
-//         });
-//     });
 
 /* Handle user signup */
 // TODO: Remove stripe connect stuff, capture bank details
