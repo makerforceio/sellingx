@@ -75,6 +75,7 @@ export const updateRollingAverageOnUpdate = functions.firestore
     .document("events/{event}/tickets/{ticket}")
     .onUpdate(onTicketChange);
 
+// Automatically populate price fields of new events
 export const onEventUpload = functions.firestore
     .document("events/{event}")
     .onWrite(async (
@@ -129,7 +130,6 @@ export const onTicketUpload = functions.storage
     });
 
 /* Handle user signup */
-// TODO: Remove stripe connect stuff, capture bank details
 export const signup = functions.https.onCall(async (data, context) => {
   if (!context.auth) {
     throw new functions.https.HttpsError(
@@ -171,25 +171,6 @@ export const signup = functions.https.onCall(async (data, context) => {
   };
 });
 
-// TOFIX: Might not be needed
-// export const signupRefresh = functions.https
-//     .onRequest(async (request, response) => {
-//       if (!request.query.id) {
-//         response.status(400).send("404 ID Not Found");
-//         return;
-//       }
-//
-//       const id = request.query.id as string;
-//       const accountLink = await stripe.accountLinks.create({
-//         account: id,
-//         refresh_url: `${process.env.SIGNUP_REFRESH_URL}?id=${id}`,
-//         return_url: process.env.SIGNUP_RETURN_URL,
-//         type: "account_onboarding",
-//       });
-//
-//       response.status(302).redirect(accountLink.url);
-//     });
-
 export const buyTicket = functions.https.onCall(async (data, context) => {
   if (!context.auth) {
     throw new functions.https.HttpsError(
@@ -225,22 +206,6 @@ export const buyTicket = functions.https.onCall(async (data, context) => {
         "'ticket' must have a seller_id");
   }
 
-  // const stripeDoc = await db.doc(`stripes/${doc.seller_id}`)
-  //     .get()
-  //     .then((d) => d.data());
-  //
-  // if (stripeDoc == undefined) {
-  //   throw new functions.https.HttpsError(
-  //       "invalid-argument",
-  //       "seller not found");
-  // }
-  //
-  // if (stripeDoc.stripe_id == undefined) {
-  //   throw new functions.https.HttpsError(
-  //       "invalid-argument",
-  //       "seller does not have a recorded Stripe account");
-  // }
-
   const markup = doc.price * 100 * 0.014 + 20 + 50;
   // const markup = 80;
   const paymentIntent = await stripe.paymentIntents.create({
@@ -263,6 +228,7 @@ export const buyTicket = functions.https.onCall(async (data, context) => {
   };
 });
 
+// Stripe webhook
 export const webhook = functions.https.onRequest(async (request, response) => {
   let event;
   try {
@@ -300,7 +266,6 @@ export const webhook = functions.https.onRequest(async (request, response) => {
 
     const [file] = await bucket.file(doc.ticket)
         .get();
-
 
     const [metadata] = await file.getMetadata();
     const [data] = await file.download();
@@ -348,7 +313,6 @@ export const webhook = functions.https.onRequest(async (request, response) => {
       await sendgrid.send(sellerMsg);
     }
 
-
     await db.doc(`events/${doc.event}/tickets/${doc.ticket}`)
         .set({
           sold: true,
@@ -361,73 +325,9 @@ export const webhook = functions.https.onRequest(async (request, response) => {
   } else if (event.type == "payment_intent.payment_failed") {
     // const id = (event.data.object as Stripe.PaymentIntent).id;
     // await db.doc(`transactions/${id}`).delete();
-  } else if (event.type == "account.updated") {
-    const account = event.data.object as Stripe.Account;
-    const uid = await db.doc(`aids/${account.id}`)
-        .get()
-        .then((doc) => doc.data())
-        .then((data) => data ? data.uid : undefined);
-
-    if (uid == undefined) {
-      response.status(404).send("404 User Not Found");
-      return;
-    }
-
-    const payable = account.capabilities ?
-        account.capabilities.transfers == "active" : false;
-
-    await db.doc(`users/${uid}`)
-        .set({
-          payable,
-        }, {
-          merge: true,
-        });
   } else {
     functions.logger.info(`Unsupported webhook event ${event.type} tried`);
   }
 
   response.status(200).send("200 OK");
 });
-
-export const webhookConnect = functions.https
-    .onRequest(async (request, response) => {
-      let event;
-      try {
-        event = stripe.webhooks.constructEvent(
-            request.rawBody,
-            request.headers["stripe-signature"] as string,
-            webhookConnectSecret,
-        );
-      } catch (err) {
-        functions.logger.warn(err, {structuredData: true});
-        response.status(500).send("500 Internal Server Error");
-        return;
-      }
-
-      if (event.type == "account.updated") {
-        const account = event.data.object as Stripe.Account;
-        const uid = await db.doc(`aids/${account.id}`)
-            .get()
-            .then((doc) => doc.data())
-            .then((data) => data ? data.uid : undefined);
-
-        if (uid == undefined) {
-          response.status(404).send("404 User Not Found");
-          return;
-        }
-
-        const payable = account.capabilities ?
-            account.capabilities.transfers == "active" : false;
-
-        await db.doc(`users/${uid}`)
-            .set({
-              payable,
-            }, {
-              merge: true,
-            });
-      } else {
-        functions.logger.info(`Unsupported webhook event ${event.type} tried`);
-      }
-
-      response.status(200).send("200 OK");
-    });
