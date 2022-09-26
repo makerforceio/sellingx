@@ -29,12 +29,11 @@ import LoadingSpinner from "./LoadingSpinner.vue";
 
 let hostUrl;
 // CHECK FOR DEV MODE
-if(window.location.hostname == 'localhost')
-  hostUrl = `http://${window.location.host}/`
-else
-  hostUrl = `https://${window.location.host}/`;
+if (window.location.hostname == "localhost")
+  hostUrl = `http://${window.location.host}/`;
+else hostUrl = `https://${window.location.host}/`;
 
-console.log(hostUrl)
+console.log(hostUrl);
 
 // Firebase passwordless settings
 const actionCodeSettings = {
@@ -46,7 +45,7 @@ const actionCodeSettings = {
 
 // Stripe settings (imported in index)
 const stripe = Stripe(
-  "pk_live_51Kc9zuICM6wKNignVh7ttMDklHvI6R6MGbw3dXzi9YSfm7W1qjexw6Cs9uO8n1JYtUD8eyTtnxwU45FZrTnVu5W400W82weKwJ"
+  "pk_live_51LluiFLUpNRkDBnAH6LR65Pu87qRhx9C1f2xujZvS2ZdIF3osisDG34kekpprk23d4QhNVaIvm0EewyFNAfaCKbl008fjw28Xk"
   // "pk_test_51Kc9zuICM6wKNignNV224oUSa4Rs07yOKbQlQsJECDiFJE42RE3bOntjdXBV1gMvpW8f38qGqtZIoWVVzfYFpKAu005DLPPYTE"
 );
 
@@ -113,7 +112,7 @@ onMounted(() => {
       user.value = null;
       userData.value = null;
 
-      if(userDataUnsub != null) {
+      if (userDataUnsub != null) {
         userDataUnsub();
         userDataUnsub = null;
       }
@@ -138,10 +137,12 @@ onMounted(() => {
 
   // Check if there is any messages to show
   var urlParams = new URLSearchParams(window.location.search);
-  if(urlParams.has('successConnect'))
-    successMessage.value = "We've successfully configured your seller account 💰";
-  else if(urlParams.has('successBuy'))
-    successMessage.value = "You've bought a ticket, it's on it's way to your email 💌";
+  if (urlParams.has("successConnect"))
+    successMessage.value =
+      "We've successfully configured your seller account 💰";
+  else if (urlParams.has("successBuy"))
+    successMessage.value =
+      "You've bought a ticket, it's on it's way to your email 💌";
 
   subscribeEvents();
 });
@@ -278,7 +279,7 @@ const onTicketUpload = () => {
 function updateTicketPrice() {
   updateButtonLoading.value = true;
 
-  if(!newTicketPrice.value) {
+  if (!newTicketPrice.value) {
     errorMessageUpdateModal.value = "Invalid form fields!";
     updateButtonLoading.value = false;
     return;
@@ -292,13 +293,16 @@ function updateTicketPrice() {
   );
   updateDoc(ticketRef, {
     price: newTicketPrice.value,
-  }).then(() => {
-    sellUpdateModalOff();
-    updateButtonLoading.value = false;
-  }).catch((error) => {
-    errorMessageUpdateModal.value = "Oops, there's an error, reach out to us to report it!"
-    updateButtonLoading.value = false;
-  });
+  })
+    .then(() => {
+      sellUpdateModalOff();
+      updateButtonLoading.value = false;
+    })
+    .catch((error) => {
+      errorMessageUpdateModal.value =
+        "Oops, there's an error, reach out to us to report it!";
+      updateButtonLoading.value = false;
+    });
 }
 
 function cancelTicketSale() {
@@ -310,26 +314,29 @@ function cancelTicketSale() {
     "events/" + activeEvent.value.id + "/tickets",
     updateTicket.value.id
   );
-  deleteDoc(ticketRef).then(() => {
-    sellUpdateModalOff();
-    cancelButtonLoading.value = false;
-  }).catch((error) => {
-    console.log(error)
-    errorMessageUpdateModal.value = "Oops, there's an error, reach out to us to report it!"
-    cancelButtonLoading.value = false;
-  });
+  deleteDoc(ticketRef)
+    .then(() => {
+      sellUpdateModalOff();
+      cancelButtonLoading.value = false;
+    })
+    .catch((error) => {
+      console.log(error);
+      errorMessageUpdateModal.value =
+        "Oops, there's an error, reach out to us to report it!";
+      cancelButtonLoading.value = false;
+    });
 }
 
 function sellTicket() {
   sellButtonLoading.value = true;
 
-  if(!ticketFile.value.files[0] || !ticketPrice.value) {
+  if (!ticketFile.value.files[0] || !ticketPrice.value) {
     errorMessageSellModal.value = "Invalid form fields!";
     sellButtonLoading.value = false;
     return;
   }
 
-  if(ticketPrice.value == "") {
+  if (ticketPrice.value == "") {
     errorMessageSellModal.value = "Selling price must be a number!";
     sellButtonLoading.value = false;
     return;
@@ -358,13 +365,13 @@ function sellTicket() {
 function onboarding() {
   onboardingButtonLoading.value = true;
 
-  if(accountNumber.value == "") {
+  if (accountNumber.value == "") {
     errorMessageOnboardingModal.value = "Account number must be a number!";
     onboardingButtonLoading.value = false;
     return;
   }
 
-  if(sortCode.value == "") {
+  if (sortCode.value == "") {
     errorMessageOnboardingModal.value = "Sort code must be a number!";
     onboardingButtonLoading.value = false;
     return;
@@ -376,36 +383,40 @@ function onboarding() {
     account_number: accountNumber.value,
     sort_code: sortCode.value,
   })
-  .then((result) => {
-    onboardingButtonLoading.value = false;
-    onboardingModalOff();
-    console.log("Onboarded!");
-  })
-  .catch(() => {
-    // Probably the user is not authenticated
-    infoMessage.value =
-      "We don't know who you are. Login above to sell a ticket 😉";
-  });
+    .then((result) => {
+      onboardingButtonLoading.value = false;
+      onboardingModalOff();
+      console.log("Onboarded!");
+    })
+    .catch(() => {
+      // Probably the user is not authenticated
+      infoMessage.value =
+        "We don't know who you are. Login above to sell a ticket 😉";
+    });
 }
 
 function payForTicket() {
   buyButtonLoading.value = true;
-  stripe.confirmPayment({
-    //`Elements` instance that was used to create the Payment Element
-    elements: stripeElements,
-    confirmParams: {
-      return_url: hostUrl + "?successBuy=true",
-    },
-  }).then(function(result) {
-    if (result.error) {
-      if(result.error.type == "card_error")
-        errorMessageBuyModal.value = "There is an error with your card, try again.";
-      else
-        errorMessageBuyModal.value = "Unable to complete purchase, report any bugs below!";
+  stripe
+    .confirmPayment({
+      //`Elements` instance that was used to create the Payment Element
+      elements: stripeElements,
+      confirmParams: {
+        return_url: hostUrl + "?successBuy=true",
+      },
+    })
+    .then(function (result) {
+      if (result.error) {
+        if (result.error.type == "card_error")
+          errorMessageBuyModal.value =
+            "There is an error with your card, try again.";
+        else
+          errorMessageBuyModal.value =
+            "Unable to complete purchase, report any bugs below!";
 
-      buyButtonLoading.value = false;
-    }
-  });
+        buyButtonLoading.value = false;
+      }
+    });
 }
 
 const gotoTickets = (eventId) => {
@@ -429,26 +440,28 @@ const buyModalOn = (ticket) => {
   showBuyModal.value = true;
   buyTicket.value = ticket;
 
-  getStripeBuyerSecret(ticket).then((secret) => {
-    const options = {
-      clientSecret: secret,
-      appearance: {
-        variables: {
-          fontFamily: "Fira Sans, system-ui, sans-serif",
+  getStripeBuyerSecret(ticket)
+    .then((secret) => {
+      const options = {
+        clientSecret: secret,
+        appearance: {
+          variables: {
+            fontFamily: "Fira Sans, system-ui, sans-serif",
+          },
         },
-      },
-    };
+      };
 
-    // Set up Stripe.js and Elements to use in checkout form, passing the client secret obtained in step 2
-    stripeElements = stripe.elements(options);
+      // Set up Stripe.js and Elements to use in checkout form, passing the client secret obtained in step 2
+      stripeElements = stripe.elements(options);
 
-    // Create and mount the Payment Element
-    const paymentElem = stripeElements.create("payment");
-    paymentElem.mount("#payment-element");
-    paymentOptionsLoading.value = false;
-  }).catch((_) => {
+      // Create and mount the Payment Element
+      const paymentElem = stripeElements.create("payment");
+      paymentElem.mount("#payment-element");
+      paymentOptionsLoading.value = false;
+    })
+    .catch((_) => {
       errorMessageBuyModal.value = "ERROR: fetching payment data";
-  });
+    });
 };
 
 const buyModalOff = () => {
@@ -531,12 +544,11 @@ const myActiveTickets = computed(() => {
 });
 
 const notMyTickets = computed(() => {
-  if(user.value != null)
+  if (user.value != null)
     return activeTickets.value.filter(
       (ticket) => ticket.sellerId != user.value.uid
     );
-  else
-    return activeTickets.value;
+  else return activeTickets.value;
 });
 
 // Method to sign into firebase using passwordless
@@ -547,8 +559,9 @@ const signin = () => {
 
   // Check and block UCL emails
   let regex = /^[a-zA-Z]+@ucl\.ac\.uk$/i;
-  if(regex.test(emailSanitized)) {
-    infoMessage.value = "UCL's email seems to filter us out as spam, try using a different email while we ask them to whitelist us 🥲"
+  if (regex.test(emailSanitized)) {
+    infoMessage.value =
+      "UCL's email seems to filter us out as spam, try using a different email while we ask them to whitelist us 🥲";
     signInButtonLoading.value = false;
     return;
   }
@@ -653,7 +666,7 @@ const signout = () => {
     {{ errorMessage }}
   </div>
 
-    <!-- Success Messages -->
+  <!-- Success Messages -->
   <div
     v-if="successMessage != null"
     class="mb-4 bg-green-50 border-green-300 border rounded w-full py-2 px-4 text-green-600 text-sm"
@@ -699,7 +712,9 @@ const signout = () => {
     </div>
 
     <div class="flex flex-row w-full items-center">
-      <h1 class="text-2xl sm:text-3xl font-semibold uppercase">{{ activeEvent.name }}</h1>
+      <h1 class="text-2xl sm:text-3xl font-semibold uppercase">
+        {{ activeEvent.name }}
+      </h1>
       <div
         class="flex flex-row w-24 justify-center px-4 py-2 ml-auto rounded"
         :class="{
@@ -720,7 +735,11 @@ const signout = () => {
       v-if="user"
       class="bg-gray-100 rounded w-full px-4 py-2 text-gray-500 text-sm sm:text-base"
     >
-      {{ (myActiveTickets.length != 0) ? "My Selling Tickets" : "Sell a ticket using the button above 😜" }}
+      {{
+        myActiveTickets.length != 0
+          ? "My Selling Tickets"
+          : "Sell a ticket using the button above 😜"
+      }}
     </div>
     <TicketListElement
       v-if="user"
@@ -730,10 +749,7 @@ const signout = () => {
       :price="ticket.price"
     />
     <!-- Divider between view and personal -->
-    <div
-      v-if="user"
-      class="h-px w-full bg-gray-100 my-4"
-    ></div>
+    <div v-if="user" class="h-px w-full bg-gray-100 my-4"></div>
 
     <div
       v-if="notMyTickets.length == 0"
@@ -759,7 +775,9 @@ const signout = () => {
       class="flex flex-col w-full sm:w-10/12 md:w-8/12 lg:w-4/12 m-2 p-6 bg-white rounded"
     >
       <div class="flex flex-row w-full items-center">
-        <h1 class="text-2xl sm:text-3xl font-semibold uppercase">{{ activeEvent.name }}</h1>
+        <h1 class="text-2xl sm:text-3xl font-semibold uppercase">
+          {{ activeEvent.name }}
+        </h1>
         <div
           class="flex flex-row w-24 justify-center px-4 py-2 ml-auto rounded"
           :class="{
@@ -778,10 +796,14 @@ const signout = () => {
         <div
           class="flex flex-row w-24 justify-center px-4 py-2 mr-2 rounded bg-gray-100"
         >
-          <h2 class="text-gray-500 font-semibold text-sm sm:text-base">Seller</h2>
+          <h2 class="text-gray-500 font-semibold text-sm sm:text-base">
+            Seller
+          </h2>
         </div>
         <div class="bg-gray-100 w-full flex flex-row px-4 py-2 rounded">
-          <h1 class="text-gray-500 text-sm sm:text-base">{{ buyTicket.email }}</h1>
+          <h1 class="text-gray-500 text-sm sm:text-base">
+            {{ buyTicket.email }}
+          </h1>
         </div>
       </div>
       <div
@@ -789,7 +811,9 @@ const signout = () => {
         class="bg-gray-100 w-full flex flex-row justify-center items-center px-4 py-2 rounded"
       >
         <LoadingSpinner size="24" color="#6b7280" class="mr-2" />
-        <h1 class="text-gray-500 text-sm sm:text-base">Loading payment options...</h1>
+        <h1 class="text-gray-500 text-sm sm:text-base">
+          Loading payment options...
+        </h1>
       </div>
       <div
         v-if="!paymentOptionsLoading"
@@ -815,7 +839,9 @@ const signout = () => {
           class="flex justify-center items-center bg-green-500 color-white rounded text-white px-4 py-2 uppercase hover:bg-green-600 grow mr-2"
           @click="payForTicket"
         >
-          <span v-if="!buyButtonLoading">Buy £{{ (buyTicket.price + 0.80).toFixed(2) }}</span>
+          <span v-if="!buyButtonLoading"
+            >Buy £{{ (buyTicket.price + 0.8).toFixed(2) }}</span
+          >
           <LoadingSpinner size="24" color="#fff" v-if="buyButtonLoading" />
         </button>
         <button
@@ -837,7 +863,9 @@ const signout = () => {
       class="flex flex-col w-full sm:w-10/12 md:w-8/12 lg:w-4/12 m-2 p-6 bg-white rounded"
     >
       <div class="flex flex-row w-full items-center">
-        <h1 class="text-2xl sm:text-3xl font-semibold uppercase">Tell us how to pay you!</h1>
+        <h1 class="text-2xl sm:text-3xl font-semibold uppercase">
+          Tell us how to pay you!
+        </h1>
       </div>
       <div class="flex flex-row w-full mt-2">
         <input
@@ -870,7 +898,11 @@ const signout = () => {
           class="flex justify-center items-center bg-red-500 color-white rounded text-white px-4 py-2 uppercase hover:bg-red-600 grow mr-2"
         >
           <span v-if="!onboardingButtonLoading">Let's go!</span>
-          <LoadingSpinner v-if="onboardingButtonLoading" size="24" color="#fff" />
+          <LoadingSpinner
+            v-if="onboardingButtonLoading"
+            size="24"
+            color="#fff"
+          />
         </button>
         <button
           @click="onboardingModalOff"
@@ -891,7 +923,9 @@ const signout = () => {
       class="flex flex-col w-full sm:w-10/12 md:w-8/12 lg:w-4/12 m-2 p-6 bg-white rounded"
     >
       <div class="flex flex-row w-full items-center">
-        <h1 class="text-2xl sm:text-3xl font-semibold uppercase">{{ activeEvent.name }}</h1>
+        <h1 class="text-2xl sm:text-3xl font-semibold uppercase">
+          {{ activeEvent.name }}
+        </h1>
         <div
           class="flex flex-row w-24 justify-center px-4 py-2 ml-auto rounded"
           :class="{
@@ -1007,7 +1041,9 @@ const signout = () => {
       class="flex flex-col w-full sm:w-10/12 md:w-8/12 lg:w-4/12 m-2 p-6 bg-white rounded"
     >
       <div class="flex flex-row w-full items-center">
-        <h1 class="text-2xl sm:text-3xl font-semibold uppercase">{{ activeEvent.name }}</h1>
+        <h1 class="text-2xl sm:text-3xl font-semibold uppercase">
+          {{ activeEvent.name }}
+        </h1>
         <div
           class="flex flex-row w-24 justify-center px-4 py-2 ml-auto rounded"
           :class="{
