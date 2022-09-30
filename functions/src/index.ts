@@ -2,6 +2,7 @@ import * as functions from "firebase-functions";
 import * as admin from "firebase-admin";
 import {DocumentSnapshot} from "firebase-admin/firestore";
 
+import * as crypto from "crypto";
 import Stripe from "stripe";
 import * as sendgrid from "@sendgrid/mail";
 import * as mime from "mime-types";
@@ -16,7 +17,28 @@ const stripe = new Stripe(process.env.STRIPE_API_KEY || "", {
 });
 
 const webhookSecret = process.env.STRIPE_WEBHOOK_SECRET || "";
-const webhookConnectSecret = process.env.STRIPE_CONNECT_WEBHOOK_SECRET || "";
+const encryptSecret = process.env.ENCRYPT_SECRET || "8f87c82907ad638becba3a28a68cbd69";
+
+const encrypt = (text:string, secret = encryptSecret) => {
+  const iv = crypto.randomBytes(16);
+  const cipher = crypto.createCipheriv('aes-256-cbc', Buffer.from(secret), iv);
+  const encrypted = cipher.update(text);
+
+  return {
+    iv: iv.toString('hex'),
+    encrypted: Buffer.concat([encrypted, cipher.final()]).toString('hex'),
+  };
+};
+
+const decrypt = (block: {iv: string, encrypted: string}, secret = encryptSecret) => {
+  const iv = Buffer.from(block.iv, 'hex');
+  const encrypted = Buffer.from(block.encrypted, 'hex');
+
+  const decipher = crypto.createDecipheriv('aes-256-cbc', Buffer.from(secret), iv);
+  const deencrypted = decipher.update(encrypted);
+
+  return Buffer.concat([deencrypted, decipher.final()]).toString();
+};
 
 // // Start writing Firebase Functions
 // // https://firebase.google.com/docs/functions/typescript
@@ -155,8 +177,8 @@ export const signup = functions.https.onCall(async (data, context) => {
     // Set user
     await db.doc(`users/${context.auth.uid}`)
       .set({
-        sort_code: data.sort_code,
-        account_number: data.account_number,
+        sort_code: encrypt(data.sort_code),
+        account_number: encrypt(data.account_number),
         payable: true,
       });
   } else {
@@ -264,6 +286,15 @@ export const webhook = functions.https.onRequest(async (request, response) => {
       return;
     }
 
+    const ticket = await db.doc(`events/${doc.event}/tickets/${doc.ticket}`)
+        .get()
+        .then((d) => d.data());
+
+    if (ticket == undefined) {
+      response.status(404).send("404 Ticket Not Found");
+      return;
+    }
+
     const [file] = await bucket.file(doc.ticket)
         .get();
 
@@ -300,17 +331,45 @@ export const webhook = functions.https.onRequest(async (request, response) => {
 
     if (seller != undefined) {
       // eslint-disable-next-line
-      const soldAmount = `£${((pi.amount - (pi.application_fee_amount || 0)) / 100).toFixed(2)}`;
+      const soldAmount = `£${ticket.price.toFixed(2)}`;
       const sellerMsg = {
         to: seller.email,
         from: process.env.SENDGRID_SENDER_EMAIL || "sellingx@octalorca.me",
         // eslint-disable-next-line
         subject: `Your ${ticketEvent.name || ""} ticket has been sold for ${soldAmount}!`,
         // eslint-disable-next-line
-        text: `Congratulations! Your ${ticketEvent.name || ""} ticket has been sold for ${soldAmount}! Sign in and check your Stripe Dashboard to withdraw your money.`,
+        text: `Congratulations! Your ${ticketEvent.name || ""} ticket has been sold for ${soldAmount}! We'll be sending you your money at the end of the week.`,
       };
 
       await sendgrid.send(sellerMsg);
+
+      const sellerData = await db.doc(`users/${seller.uid}`)
+        .get()
+        .then(d => d.data());
+
+      const seller_sort_code = sellerData ? decrypt(sellerData.sort_code) : 'not found';
+      const seller_account_number = sellerData ? decrypt(sellerData.account_number) : 'not found';
+
+      const opsMsg = {
+        to: 'support@sellingx.io',
+        from: process.env.SENDGRID_SENDER_EMAIL || "sellingx@octalorca.me",
+        subject: `${ticketEvent.name || ""} ticket has been sold to ${seller.email} for ${soldAmount}!`,
+        text: `
+          <p>${ticketEvent.name || ""} ticket has been sold to ${seller.email} for ${soldAmount}!</p>
+          <table>
+            <tr>
+              <td>Sort code</td>
+              <td>${seller_sort_code}</td>
+            </tr>
+            <tr>
+              <td>Account number</td>
+              <td>${seller_account_number}</td>
+            </tr>
+          </table>
+        `,
+      };
+
+      await sendgrid.send(opsMsg);
     }
 
     await db.doc(`events/${doc.event}/tickets/${doc.ticket}`)
@@ -323,8 +382,10 @@ export const webhook = functions.https.onRequest(async (request, response) => {
     await db.doc(`transactions/${pi.id}`)
         .delete();
   } else if (event.type == "payment_intent.payment_failed") {
-    // const id = (event.data.object as Stripe.PaymentIntent).id;
-    // await db.doc(`transactions/${id}`).delete();
+    const id = (event.data.object as Stripe.PaymentIntent).id;
+    await db.doc(`failed_transactions/${id}`)
+      .set(event.data.object);
+    await db.doc(`transactions/${id}`).delete();
   } else {
     functions.logger.info(`Unsupported webhook event ${event.type} tried`);
   }
